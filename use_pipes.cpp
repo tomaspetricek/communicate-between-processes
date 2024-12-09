@@ -16,7 +16,7 @@ namespace
             perror("pipe");
             return 1;
         }
-        auto pipe = std::move(pipe_created).value();
+        auto& pipe = pipe_created.value();
 
         // fork the process
         const pid_t pid = fork();
