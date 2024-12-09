@@ -23,11 +23,13 @@ namespace posix
 
             if (ret != 0)
             {
-                if (ret == EINVAL)
+                assert(ret == -1);
+
+                if (errno == EINVAL)
                 {
                     return std::unexpected{error_code::invalid_argument};
                 }
-                assert(ret == ENOMEM);
+                assert(errno == ENOMEM);
                 return std::unexpected{error_code::insufficient_memory};
             }
             return std::expected<posix::mutex, error_code>{std::in_place, handle};
@@ -39,11 +41,13 @@ namespace posix
 
             if (ret != 0)
             {
-                if (ret == EDEADLK)
+                assert(ret == -1);
+
+                if (errno == EDEADLK)
                 {
                     return std::unexpected{error_code::deadlock_detected};
                 }
-                assert(ret == EINVAL);
+                assert(errno == EINVAL);
                 return std::unexpected{error_code::improperly_initialized};
             }
             return std::expected<void, error_code>{};
@@ -55,11 +59,13 @@ namespace posix
 
             if (ret != 0)
             {
-                if (ret == EPERM)
+                assert(ret == -1);
+
+                if (errno == EPERM)
                 {
                     return std::unexpected{error_code::not_owned};
                 }
-                assert(ret == EINVAL);
+                assert(errno == EINVAL);
                 return std::unexpected{error_code::improperly_initialized};
             }
             return std::expected<void, error_code>{};

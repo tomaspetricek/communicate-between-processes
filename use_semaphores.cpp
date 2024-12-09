@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "posix/mutex.hpp"
+#include "posix/unnamed_semaphore.hpp"
 
 namespace
 {
@@ -12,8 +13,10 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    sem_t empty_slots;  // tracks available slots in the buffer
-    sem_t filled_slots; // tracks the number of items in the buffer
+    auto empty_slots_created = posix::unnamed_semaphore::create(posix::shared_between::threads, buffer_size); // all slots available in the beginning
+    auto filled_slots_created = posix::unnamed_semaphore::create(posix::shared_between::threads, 0);          // no slots are filled in the beginning
+    auto &empty_slots = empty_slots_created.value();                                                          // tracks available slots in the buffer
+    auto &filled_slots = filled_slots_created.value();                                                        // tracks the number of items in the buffer
     auto buffer_mutex_created = posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 
@@ -25,7 +28,7 @@ namespace
         {
             int item = rand() % 100;
 
-            sem_wait(&empty_slots);      // wait if buffer is full
+            empty_slots.wait();          // wait if buffer is full
             assert(buffer_mutex.lock()); // ensure exclusive access to the buffer
 
             // critical section
@@ -33,7 +36,7 @@ namespace
             std::println("producer: {} produced: {}", producer_id, item);
 
             assert(buffer_mutex.unlock()); // release buffer lock
-            sem_post(&filled_slots);       // signal that a new item is available
+            filled_slots.post();           // signal that a new item is available
 
             sleep(1); // simulate production time
         }
@@ -46,7 +49,7 @@ namespace
 
         for (int i{0}; i < 10; ++i)
         {
-            sem_wait(&filled_slots);     // wait if buffer is empty
+            filled_slots.wait();         // wait if buffer is empty
             assert(buffer_mutex.lock()); // ensure exclusive access to the buffer
 
             // critical section
@@ -55,7 +58,7 @@ namespace
             std::println("consumer: {} consumed: {}", consumer_id, item);
 
             assert(buffer_mutex.unlock()); // release buffer lock
-            sem_post(&empty_slots);        // signal that a slot is free
+            empty_slots.post();            // signal that a slot is free
 
             sleep(2); // simulate consumption time
         }
@@ -66,10 +69,8 @@ namespace
 int main(int, char **)
 {
     assert(buffer_mutex_created.has_value());
-
-    // initilaize semaphores and mutex
-    sem_init(&empty_slots, 0, buffer_size); // buffer size empty slots initially
-    sem_init(&filled_slots, 0, 0);          // no items in the biffer initially
+    assert(empty_slots_created.has_value());
+    assert(filled_slots_created.has_value());
 
     // cretae producer and conumer threads
     pthread_t producers[2], consumers[2];
@@ -88,9 +89,5 @@ int main(int, char **)
         pthread_join(producers[i], nullptr);
         pthread_join(consumers[i], nullptr);
     }
-
-    // clean up
-    sem_destroy(&empty_slots);
-    sem_destroy(&filled_slots);
     return EXIT_SUCCESS;
 }
