@@ -28,7 +28,7 @@ namespace
         {
             int item = rand() % 100;
 
-            empty_slots.wait();          // wait if buffer is full
+            assert(empty_slots.wait());          // wait if buffer is full
             assert(buffer_mutex.lock()); // ensure exclusive access to the buffer
 
             // critical section
@@ -36,7 +36,7 @@ namespace
             std::println("producer: {} produced: {}", producer_id, item);
 
             assert(buffer_mutex.unlock()); // release buffer lock
-            filled_slots.post();           // signal that a new item is available
+            assert(filled_slots.post());           // signal that a new item is available
 
             sleep(1); // simulate production time
         }
@@ -49,7 +49,7 @@ namespace
 
         for (int i{0}; i < 10; ++i)
         {
-            filled_slots.wait();         // wait if buffer is empty
+            assert(filled_slots.wait());         // wait if buffer is empty
             assert(buffer_mutex.lock()); // ensure exclusive access to the buffer
 
             // critical section
@@ -58,7 +58,7 @@ namespace
             std::println("consumer: {} consumed: {}", consumer_id, item);
 
             assert(buffer_mutex.unlock()); // release buffer lock
-            empty_slots.post();            // signal that a slot is free
+            assert(empty_slots.post());            // signal that a slot is free
 
             sleep(2); // simulate consumption time
         }

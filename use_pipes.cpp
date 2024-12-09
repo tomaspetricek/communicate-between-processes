@@ -14,7 +14,7 @@ namespace
         if (!pipe_created)
         {
             perror("pipe");
-            return 1;
+            return EXIT_FAILURE;
         }
         auto& pipe = pipe_created.value();
 
