@@ -54,7 +54,7 @@ namespace posix
             }
             assert(errno == EINVAL);
             // mutex is not properly initialized
-            return std::unexpected{error_code::improperly_initialized};
+            return std::unexpected{error_code::is_invalid};
         }
 
         std::expected<void, error_code> unlock() noexcept
@@ -74,7 +74,7 @@ namespace posix
             }
             assert(errno == EINVAL);
             // mutex not properly initialized
-            return std::unexpected{error_code::improperly_initialized};
+            return std::unexpected{error_code::is_invalid};
         }
 
         ~mutex() noexcept
