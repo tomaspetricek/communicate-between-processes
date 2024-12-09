@@ -6,13 +6,10 @@
 #include <expected>
 #include <unistd.h>
 
+#include "error_code.hpp"
+
 namespace posix
 {
-    enum class error_code
-    {
-        creation,
-    };
-
     class pipe
     {
         using file_descriptor_t = int;
