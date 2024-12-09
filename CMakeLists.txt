@@ -8,5 +8,6 @@ file(GLOB SOURCES "src/*.cpp")
 
 project(communicate_between_processes VERSION 0.1.0 LANGUAGES C CXX)
 
-add_executable(communicate_between_processes main.cpp)
+add_executable(use_pipes use_pipes.cpp)
+add_executable(use_semaphores use_semaphores.cpp)
 
