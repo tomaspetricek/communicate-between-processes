@@ -21,54 +21,60 @@ namespace posix
             pthread_mutex_t handle;
             const auto ret = pthread_mutex_init(&handle, nullptr);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EINVAL)
-                {
-                    return std::unexpected{error_code::invalid_argument};
-                }
-                assert(errno == ENOMEM);
-                return std::unexpected{error_code::insufficient_memory};
+                return std::expected<posix::mutex, error_code>{std::in_place, handle};
             }
-            return std::expected<posix::mutex, error_code>{std::in_place, handle};
+            assert(ret == -1);
+
+            if (errno == EINVAL)
+            {
+                // invalid mutex attributes
+                return std::unexpected{error_code::invalid_argument};
+            }
+            assert(errno == ENOMEM);
+            // insufficient memory to initialize the mutex
+            return std::unexpected{error_code::insufficient_memory};
         }
 
         std::expected<void, error_code> lock() noexcept
         {
             const auto ret = pthread_mutex_lock(&handle_);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EDEADLK)
-                {
-                    return std::unexpected{error_code::deadlock_detected};
-                }
-                assert(errno == EINVAL);
-                return std::unexpected{error_code::improperly_initialized};
+                return std::expected<void, error_code>{};
             }
-            return std::expected<void, error_code>{};
+            assert(ret == -1);
+
+            if (errno == EDEADLK)
+            {
+                // deadlock detected
+                return std::unexpected{error_code::deadlock_detected};
+            }
+            assert(errno == EINVAL);
+            // mutex is not properly initialized
+            return std::unexpected{error_code::improperly_initialized};
         }
 
         std::expected<void, error_code> unlock() noexcept
         {
             const auto ret = pthread_mutex_unlock(&handle_);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EPERM)
-                {
-                    return std::unexpected{error_code::not_owned};
-                }
-                assert(errno == EINVAL);
-                return std::unexpected{error_code::improperly_initialized};
+                return std::expected<void, error_code>{};
             }
-            return std::expected<void, error_code>{};
+            assert(ret == -1);
+
+            if (errno == EPERM)
+            {
+                // current thread does not own the mutex
+                return std::unexpected{error_code::not_owned};
+            }
+            assert(errno == EINVAL);
+            // mutex not properly initialized
+            return std::unexpected{error_code::improperly_initialized};
         }
 
         ~mutex() noexcept

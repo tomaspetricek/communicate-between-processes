@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cassert>
+#include <errno.h>
 #include <expected>
 #include <unistd.h>
 
@@ -18,12 +19,31 @@ namespace posix
         static constexpr std::size_t write_end_index = 1;
         using file_descriptors_t = std::array<file_descriptor_t, end_count>;
 
-        void close_end(std::size_t index)
+        std::expected<void, error_code> close_end(std::size_t index)
         {
             assert(index < end_count);
             assert(is_end_open(index));
-            close(fds_[index]);
-            end_open_ &= ~(1 << index); // set bit to 0
+            const auto ret = close(fds_[index]);
+
+            if (ret == 0)
+            {
+                end_open_ &= ~(1 << index); // set bit to 0
+            }
+            assert(ret == -1);
+
+            if (errno == EBADF)
+            {
+                // file descriptor is invalid, possibly because it has already been closed or was never opened
+                return std::unexpected{error_code::is_invalid};
+            }
+            if (errno == EINTR)
+            {
+                // operation was interrupted by a signal before it could complete
+                return std::unexpected{error_code::interrupted};
+            }
+            assert(errno == EIO);
+            // low-level I/O error occurred when flushing data
+            return std::unexpected{error_code::io_failure};
         }
 
         bool is_end_open(std::size_t index) const
@@ -39,12 +59,27 @@ namespace posix
         static std::expected<posix::pipe, error_code> create() noexcept
         {
             file_descriptor_t fds[end_count];
+            const auto ret = ::pipe(fds);
 
-            if (::pipe(fds) == -1)
+            if (ret == 0)
             {
-                return std::unexpected{error_code::creation};
+                return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
-            return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
+            assert(ret == -1);
+
+            if (errno == EFAULT)
+            {
+                // array pased is outside of accessible address space
+                return std::unexpected{error_code::invalid_argument};
+            }
+            if (errno == EMFILE)
+            {
+                // process has reached its limit for open file descriptors
+                return std::unexpected{error_code::process_max_open_file_limit_reached};
+            }
+            assert(errno == ENFILE);
+            // system-wide limit for open file descriptors has been reached
+            return std::unexpected{error_code::system_max_open_file_limit_reached};
         }
 
         pipe(const pipe &other) = delete;
@@ -63,16 +98,91 @@ namespace posix
             return is_end_open(write_end_index);
         }
 
-        void write(void *data, size_t count) const noexcept
+        std::expected<void, error_code> write(void *data, size_t count) const noexcept
         {
             assert(is_write_end_open());
-            ::write(fds_[write_end_index], data, count);
+            const auto ret = ::write(fds_[write_end_index], data, count);
+
+            if (ret == 0)
+            {
+                return std::expected<void, error_code>{};
+            }
+            assert(ret == -1);
+
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                // file descriptor is in non-blocking mode, and the write operation would block
+                return std::unexpected{error_code::would_block};
+            }
+            if (errno == EBADF)
+            {
+                // file descriptor is invalid or not open for writing
+                return std::unexpected(error_code::is_invalid);
+            }
+            if (errno == EFAULT)
+            {
+                // buffer pointer points outside the accessible address space
+                return std::unexpected{error_code::not_accessible};
+            }
+            if (errno == EFBIG)
+            {
+                // attempt was made to write beyond a file's maximum allowable size
+                return std::unexpected{error_code::write_beyond_file_max_size};
+            }
+            if (errno == EINVAL)
+            {
+                // invalid argument was passed
+                return std::unexpected{error_code::invalid_argument};
+            }
+            if (errno == EPIPE)
+            {
+                // write end of the pipe is closed, and the process receives a SIGPIPE signal
+                return std::unexpected(error_code::end_closed);
+            }
+            assert(errno == ENOSPC);
+            // device or resource has run out of space
+            return std::unexpected(error_code::no_space);
         }
 
-        void read(void *data, size_t count) const noexcept
+        std::expected<void, error_code> read(void *data, size_t count) const noexcept
         {
             assert(is_read_end_open());
-            ::read(fds_[read_end_index], data, count);
+            const auto ret = ::read(fds_[read_end_index], data, count);
+
+            if (ret == 0)
+            {
+                return std::expected<void, error_code>{};
+            }
+            assert(ret == -1);
+
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                // file descriptor is in non-blocking mode, and there is no data available
+                return std::unexpected{error_code::no_data_available};
+            }
+            if (errno == EBADF)
+            {
+                // file descriptor is invalid or not open for reading
+                return std::unexpected{error_code::is_invalid};
+            }
+            if (errno == EFAULT)
+            {
+                // buffer pointer points outside the accessible address space
+                return std::unexpected{error_code::not_accessible};
+            }
+            if (errno == EINVAL)
+            {
+                // invalid argument was passed
+                return std::unexpected{error_code::invalid_argument};
+            }
+            if (errno == EINTR)
+            {
+                // read call was interrupted by a signal before any data was read
+                return std::unexpected{error_code::interrupted};
+            }
+            assert(errno == EINTR);
+            // connection was reset by the peer (for sockets or pipes connected across processes)
+            return std::unexpected{error_code::connection_reset};
         }
 
         void close_read_end() noexcept

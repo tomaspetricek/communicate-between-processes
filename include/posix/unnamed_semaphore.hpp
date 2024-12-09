@@ -28,21 +28,23 @@ namespace posix
         static std::expected<posix::unnamed_semaphore, error_code> create(shared_between shared, unsigned int init_value) noexcept
         {
             handle_type handle;
-
             const auto ret = ::sem_init(&handle, static_cast<int>(shared), init_value);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EINVAL)
-                {
-                    return std::unexpected{error_code::invalid_argument};
-                }
-                assert(errno == ENOSYS);
-                return std::unexpected{error_code::not_supported_by_os};
+                return std::expected<posix::unnamed_semaphore, error_code>{std::in_place, handle};
             }
-            return std::expected<posix::unnamed_semaphore, error_code>{std::in_place, handle};
+            assert(ret == -1);
+
+            if (errno == EINVAL)
+            {
+                // pshared is invalid (not 0 or 1)
+                // initial value is outside the valid range
+                return std::unexpected{error_code::invalid_argument};
+            }
+            assert(errno == ENOSYS);
+            // semaphore support is not implemented on the system
+            return std::unexpected{error_code::not_supported_by_os};
         }
 
         unnamed_semaphore(const unnamed_semaphore &other) = delete;
@@ -56,39 +58,40 @@ namespace posix
             // wait until the semaphore value > 0 and decrement it
             const auto ret = ::sem_wait(&handle_);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EDEADLK)
-                {
-                    return std::unexpected{error_code::deadlock_detected};
-                }
-                assert(errno == EINVAL);
-                // invalid or not initialized
-                return std::unexpected{error_code::is_invalid};
+                return std::expected<void, error_code>{};
             }
-            return std::expected<void, error_code>{};
+            assert(ret == -1);
+
+            if (errno == EDEADLK)
+            {
+                // deadlock is detected (system-specific)
+                return std::unexpected{error_code::deadlock_detected};
+            }
+            assert(errno == EINVAL);
+            // semaphore invalid or not initialized
+            return std::unexpected{error_code::is_invalid};
         }
 
         std::expected<void, error_code> post() noexcept
         {
             const auto ret = ::sem_post(&handle_);
 
-            if (ret != 0)
+            if (ret == 0)
             {
-                assert(ret == -1);
-
-                if (errno == EINVAL)
-                {
-                    // invalid or not initialized
-                    return std::unexpected{error_code::is_invalid};
-                }
-                // value would exceed maximum
-                assert(errno == ERANGE);
-                return std::unexpected{error_code::out_of_range};
+                return std::expected<void, error_code>{};
             }
-            return std::expected<void, error_code>{};
+            assert(ret == -1);
+
+            if (errno == EINVAL)
+            {
+                // semaphore is invalid or not initialized
+                return std::unexpected{error_code::is_invalid};
+            }
+            // semaphore value value would exceed its maximum allowed value
+            assert(errno == ERANGE);
+            return std::unexpected{error_code::out_of_range};
         }
 
         ~unnamed_semaphore() noexcept
@@ -96,7 +99,7 @@ namespace posix
             const auto ret = ::sem_destroy(&handle_);
             // EINVAL - invalid or not initialized
             // EBUSY -  still in use and cannot be destroyed
-            assert(ret != 0);
+            assert(ret == 0);
         }
 
     private:

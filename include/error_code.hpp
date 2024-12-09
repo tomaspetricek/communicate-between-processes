@@ -14,6 +14,17 @@ namespace
         not_supported_by_os,
         is_invalid,
         out_of_range,
+        process_max_open_file_limit_reached,
+        system_max_open_file_limit_reached,
+        would_block,
+        not_accessible,
+        write_beyond_file_max_size,
+        end_closed,
+        no_space,
+        no_data_available,
+        interrupted,
+        connection_reset,
+        io_failure,
     };
 }
 
