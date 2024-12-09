@@ -21,6 +21,20 @@ namespace posix
         static constexpr std::size_t write_end_index = 1;
         using file_descriptors_t = std::array<file_descriptor_t, end_count>;
 
+        void close_end(std::size_t index)
+        {
+            assert(index < end_count);
+            assert(is_end_open(index));
+            close(fds_[index]);
+            end_open_ &= ~(1 << index); // set bit to 0
+        }
+
+        bool is_end_open(std::size_t index) const
+        {
+            assert(index < end_count);
+            return end_open_ & (1 << index);
+        }
+
     public:
         // find a way to make it private
         explicit pipe(const file_descriptors_t &fds) noexcept : fds_{fds} {}
@@ -42,12 +56,6 @@ namespace posix
         pipe(pipe &&other) noexcept = delete;
         pipe &operator=(pipe &&other) noexcept = delete;
 
-        bool is_end_open(std::size_t index) const
-        {
-            assert(index < end_count);
-            return end_open_ & (1 << index);
-        }
-
         bool is_read_end_open() const
         {
             return is_end_open(read_end_index);
@@ -56,14 +64,6 @@ namespace posix
         bool is_write_end_open() const
         {
             return is_end_open(write_end_index);
-        }
-
-        void close_end(std::size_t index)
-        {
-            assert(index < end_count);
-            assert(is_end_open(index));
-            close(fds_[index]);
-            end_open_ &= ~(1 << index); // set bit to 0
         }
 
         void write(void *data, size_t count) const noexcept
