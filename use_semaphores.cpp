@@ -89,5 +89,7 @@ int main(int, char **)
         pthread_join(producers[i], nullptr);
         pthread_join(consumers[i], nullptr);
     }
+    empty_slots.unlink();
+    filled_slots.unlink();
     return EXIT_SUCCESS;
 }

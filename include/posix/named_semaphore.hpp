@@ -160,32 +160,6 @@ namespace posix
             return std::unexpected{error_code::is_invalid};
         }
 
-        ~named_semaphore() noexcept
-        {
-            assert(close());
-            assert(unlink());
-        }
-
-    private:
-        handle_type *handle_;
-        std::string name_;
-
-        // closes a named semaphore,
-        // detaches the semaphore from the process but doesn't remove it
-        std::expected<void, error_code> close() noexcept
-        {
-            const auto ret = ::sem_close(handle_);
-
-            if (ret == 0)
-            {
-                return std::expected<void, error_code>{};
-            }
-            assert(ret == -1);
-            assert(errno == EINVAL);
-            // semaphore is not valid
-            return std::unexpected{error_code::is_invalid};
-        }
-
         // removes the named semaphore from the system
         // only affects the name, not active processes using the semaphore
         std::expected<void, error_code> unlink() noexcept
@@ -206,6 +180,31 @@ namespace posix
             assert(errno == ENOENT);
             // named semaphore does not exist
             return std::unexpected{error_code::not_exists};
+        }
+
+        ~named_semaphore() noexcept
+        {
+            assert(close());
+        }
+
+    private:
+        handle_type *handle_;
+        std::string name_;
+
+        // closes a named semaphore,
+        // detaches the semaphore from the process but doesn't remove it
+        std::expected<void, error_code> close() noexcept
+        {
+            const auto ret = ::sem_close(handle_);
+
+            if (ret == 0)
+            {
+                return std::expected<void, error_code>{};
+            }
+            assert(ret == -1);
+            assert(errno == EINVAL);
+            // semaphore is not valid
+            return std::unexpected{error_code::is_invalid};
         }
     };
 } // namespace posix
