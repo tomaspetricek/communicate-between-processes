@@ -7,6 +7,7 @@
 #include <pthread.h>
 
 #include "error_code.hpp"
+#include "posix/utility.hpp"
 
 namespace posix
 {
@@ -21,11 +22,11 @@ namespace posix
             pthread_mutex_t handle;
             const auto ret = pthread_mutex_init(&handle, nullptr);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<posix::mutex, error_code>{std::in_place, handle};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EINVAL)
             {
@@ -41,11 +42,11 @@ namespace posix
         {
             const auto ret = pthread_mutex_lock(&handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EDEADLK)
             {
@@ -61,11 +62,11 @@ namespace posix
         {
             const auto ret = pthread_mutex_unlock(&handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EPERM)
             {
@@ -81,7 +82,7 @@ namespace posix
         {
             const auto ret = pthread_mutex_destroy(&handle_);
             // ret != 0 -> mutex is not properly initialized or is currently locked
-            assert(ret == 0);
+            assert(operation_successful(ret));
         }
 
     private:

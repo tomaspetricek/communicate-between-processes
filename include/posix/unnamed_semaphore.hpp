@@ -30,11 +30,11 @@ namespace posix
             handle_type handle;
             const auto ret = ::sem_init(&handle, static_cast<int>(shared), init_value);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<posix::unnamed_semaphore, error_code>{std::in_place, handle};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EINVAL)
             {
@@ -58,11 +58,11 @@ namespace posix
             // wait until the semaphore value > 0 and decrement it
             const auto ret = ::sem_wait(&handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EDEADLK)
             {
@@ -78,11 +78,11 @@ namespace posix
         {
             const auto ret = ::sem_post(&handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EINVAL)
             {
@@ -99,7 +99,7 @@ namespace posix
             const auto ret = ::sem_destroy(&handle_);
             // EINVAL - invalid or not initialized
             // EBUSY -  still in use and cannot be destroyed
-            assert(ret == 0);
+            assert(operation_successful(ret));
         }
 
     private:

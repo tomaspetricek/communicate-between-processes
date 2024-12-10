@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "error_code.hpp"
+#include "posix/utility.hpp"
 
 namespace posix
 {
@@ -25,11 +26,11 @@ namespace posix
             assert(is_end_open(index));
             const auto ret = close(fds_[index]);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 end_open_ &= ~(1 << index); // set bit to 0
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EBADF)
             {
@@ -61,11 +62,11 @@ namespace posix
             file_descriptor_t fds[end_count];
             const auto ret = ::pipe(fds);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EFAULT)
             {
@@ -103,11 +104,11 @@ namespace posix
             assert(is_write_end_open());
             const auto ret = ::write(fds_[write_end_index], data, count);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EAGAIN || errno == EWOULDBLOCK)
             {
@@ -149,11 +150,11 @@ namespace posix
             assert(is_read_end_open());
             const auto ret = ::read(fds_[read_end_index], data, count);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EAGAIN || errno == EWOULDBLOCK)
             {

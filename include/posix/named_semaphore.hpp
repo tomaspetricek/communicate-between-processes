@@ -10,6 +10,7 @@
 #include <new>
 
 #include "error_code.hpp"
+#include "posix/utility.hpp"
 
 namespace posix
 {
@@ -105,11 +106,11 @@ namespace posix
         {
             const auto ret = ::sem_post(handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EINVAL)
             {
@@ -128,11 +129,11 @@ namespace posix
         {
             const auto ret = ::sem_wait(handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EINVAL)
             {
@@ -150,11 +151,11 @@ namespace posix
             int val;
             const auto ret = ::sem_getvalue(handle_, &val);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return val;
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
             assert(errno == EINVAL);
             // semaphore is not valid
             return std::unexpected{error_code::is_invalid};
@@ -166,11 +167,11 @@ namespace posix
         {
             const auto ret = ::sem_unlink(name_.data());
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
 
             if (errno == EACCES)
             {
@@ -197,11 +198,11 @@ namespace posix
         {
             const auto ret = ::sem_close(handle_);
 
-            if (ret == 0)
+            if (operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(ret == -1);
+            assert(operation_failed(ret));
             assert(errno == EINVAL);
             // semaphore is not valid
             return std::unexpected{error_code::is_invalid};
