@@ -5,12 +5,12 @@ namespace posix
 {
     constexpr bool operation_successful(int ret)
     {
-        return operation_successful(ret);
+        return ret == 0;
     }
 
     constexpr bool operation_failed(int ret)
     {
-        return operation_failed(ret);
+        return ret == -1;
     }
 }
 
