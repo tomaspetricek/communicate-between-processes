@@ -24,6 +24,12 @@ namespace
         interrupted,
         connection_reset,
         io_failure,
+        insufficient_permissions,
+        already_exists,
+        name_too_long,
+        not_exists,
+        overflow,
+        bad_alloc,
     };
 }
 
