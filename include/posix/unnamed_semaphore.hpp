@@ -43,6 +43,17 @@ namespace posix
                 // initial value is outside the valid range
                 return std::unexpected{error_code::invalid_argument};
             }
+            if (errno == ENOSPC)
+            {
+                // resource required to initialise the semaphore has been exhausted,
+                // or the limit on semaphores (SEM_NSEMS_MAX) has been reached
+                return std::unexpected{error_code::no_space};
+            }
+            if (errno == EPERM)
+            {
+                // process lacks the appropriate privileges to initialise the semaphore
+                return std::unexpected{error_code::insufficient_permissions};
+            }
             assert(errno == ENOSYS);
             // semaphore support is not implemented on the system
             return std::unexpected{error_code::not_supported_by_os};
@@ -70,6 +81,16 @@ namespace posix
                 // deadlock is detected (system-specific)
                 return std::unexpected{error_code::deadlock_detected};
             }
+            if (errno == ENOSYS)
+            {
+                // operation is not supported by this implementation
+                return std::unexpected{error_code::not_supported_by_os};
+            }
+            if (errno == EINTR)
+            {
+                // signal interrupted this function
+                return std::unexpected{error_code::interrupted};
+            }
             assert(errno == EINVAL);
             // semaphore invalid or not initialized
             return std::unexpected{error_code::is_invalid};
@@ -89,6 +110,11 @@ namespace posix
             {
                 // semaphore is invalid or not initialized
                 return std::unexpected{error_code::is_invalid};
+            }
+            if (errno == ENOSYS)
+            {
+                // is not supported by this implementation
+                return std::unexpected{error_code::not_supported_by_os};
             }
             // semaphore value value would exceed its maximum allowed value
             assert(errno == ERANGE);
