@@ -9,7 +9,6 @@ namespace
         invalid_argument,
         insufficient_memory,
         deadlock_detected,
-        improperly_initialized,
         not_owned,
         not_supported_by_os,
         is_invalid,
