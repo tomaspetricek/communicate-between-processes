@@ -27,15 +27,7 @@ namespace posix
                 return std::expected<posix::mutex, error_code>{std::in_place, handle};
             }
             assert(operation_failed(ret));
-
-            if (errno == EINVAL)
-            {
-                // invalid mutex attributes
-                return std::unexpected{error_code::invalid_argument};
-            }
-            assert(errno == ENOMEM);
-            // insufficient memory to initialize the mutex
-            return std::unexpected{error_code::insufficient_memory};
+            return std::unexpected{errno};
         }
 
         std::expected<void, error_code> lock() noexcept
@@ -47,15 +39,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-
-            if (errno == EDEADLK)
-            {
-                // deadlock detected
-                return std::unexpected{error_code::deadlock_detected};
-            }
-            assert(errno == EINVAL);
-            // mutex is not properly initialized
-            return std::unexpected{error_code::is_invalid};
+            return std::unexpected{errno};
         }
 
         std::expected<void, error_code> unlock() noexcept
@@ -67,21 +51,12 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-
-            if (errno == EPERM)
-            {
-                // current thread does not own the mutex
-                return std::unexpected{error_code::not_owned};
-            }
-            assert(errno == EINVAL);
-            // mutex not properly initialized
-            return std::unexpected{error_code::is_invalid};
+            return std::unexpected{errno};
         }
 
         ~mutex() noexcept
         {
             const auto ret = pthread_mutex_destroy(&handle_);
-            // ret != 0 -> mutex is not properly initialized or is currently locked
             assert(operation_successful(ret));
         }
 

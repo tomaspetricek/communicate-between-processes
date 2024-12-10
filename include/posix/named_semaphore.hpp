@@ -38,7 +38,7 @@ namespace posix
         explicit named_semaphore(handle_type *handle, std::string &&name) noexcept : handle_{handle}, name_{std::move(name)} {}
 
         static std::expected<posix::named_semaphore, error_code>
-        create(const std::string_view &name, const semaphore_open_flag &flag, mode_t mode,
+        create(std::string name, const semaphore_open_flag &flag, mode_t mode,
                unsigned int init_value) noexcept
         {
             handle_type *handle =
@@ -46,52 +46,10 @@ namespace posix
 
             if (handle != SEM_FAILED)
             {
-                try
-                {
-                    auto sem_name = std::string{name};
-                    return std::expected<posix::named_semaphore, error_code>{std::in_place,
-                                                                             handle, std::move(sem_name)};
-                }
-                catch (std::bad_alloc &)
-                {
-                    return std::unexpected{error_code::bad_alloc};
-                }
+                return std::expected<posix::named_semaphore, error_code>{std::in_place, handle, std::move(name)};
             }
             assert(handle == SEM_FAILED);
-
-            if (errno == EACCES)
-            {
-                // insufficient permissions to create/open the semaphore
-                return std::unexpected{error_code::insufficient_permissions};
-            }
-            if (errno == EEXIST)
-            {
-                // semaphore already exists and O_CREAT | O_EXCL was used
-                return std::unexpected{error_code::already_exists};
-            }
-            if (errno == EINVAL)
-            {
-                // invalid semaphore name or value
-                return std::unexpected{error_code::invalid_argument};
-            }
-            if (errno == EMFILE)
-            {
-                // too many file descriptors open
-                return std::unexpected{error_code::process_max_open_file_limit_reached};
-            }
-            if (errno == ENAMETOOLONG)
-            {
-                // semaphore name is too long
-                return std::unexpected{error_code::name_too_long};
-            }
-            if (errno == ENFILE)
-            {
-                // system-wide file descriptor table is full
-                return std::unexpected{error_code::system_max_open_file_limit_reached};
-            }
-            assert(errno == ENOENT);
-            // semaphore does not exist, and O_CREAT was not used
-            return std::unexpected{error_code::not_exists};
+            return std::unexpected{errno};
         }
 
         named_semaphore(const named_semaphore &other) = delete;
@@ -111,15 +69,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-
-            if (errno == EINVAL)
-            {
-                // semaphore is not valid
-                return std::unexpected{error_code::is_invalid};
-            }
-            assert(errno == EOVERFLOW);
-            // semaphore value exceeds the maximum limit
-            return std::unexpected{error_code::overflow};
+            return std::unexpected{errno};
         }
 
         // decrements the semaphore value
@@ -134,15 +84,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-
-            if (errno == EINVAL)
-            {
-                // semaphore is not valid
-                return std::unexpected{error_code::is_invalid};
-            }
-            assert(errno == EINTR);
-            // wait was interrupted by a signal
-            return std::unexpected{error_code::interrupted};
+            return std::unexpected{errno};
         }
 
         // retrieves the current value of the semaphore
@@ -156,9 +98,7 @@ namespace posix
                 return val;
             }
             assert(operation_failed(ret));
-            assert(errno == EINVAL);
-            // semaphore is not valid
-            return std::unexpected{error_code::is_invalid};
+            return std::unexpected{errno};
         }
 
         // removes the named semaphore from the system
@@ -172,15 +112,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-
-            if (errno == EACCES)
-            {
-                // insufficient permissions to unlink the semaphore
-                return std::unexpected{error_code::insufficient_permissions};
-            }
-            assert(errno == ENOENT);
-            // named semaphore does not exist
-            return std::unexpected{error_code::not_exists};
+            return std::unexpected{errno};
         }
 
         ~named_semaphore() noexcept
@@ -203,9 +135,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            assert(errno == EINVAL);
-            // semaphore is not valid
-            return std::unexpected{error_code::is_invalid};
+            return std::unexpected{errno};
         }
     };
 } // namespace posix

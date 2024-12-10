@@ -6,6 +6,7 @@
 
 #include "posix/mutex.hpp"
 #include "posix/named_semaphore.hpp"
+#include "posix/unnamed_semaphore.hpp"
 
 namespace
 {
@@ -91,5 +92,8 @@ int main(int, char **)
     }
     empty_slots.unlink();
     filled_slots.unlink();
+    const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
+    assert(!created);
+    std::println("failed to create unnamed semaphore due to: {}", posix::error_to_string(created.error()).data());
     return EXIT_SUCCESS;
 }
