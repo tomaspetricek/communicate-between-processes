@@ -95,5 +95,11 @@ int main(int, char **)
     const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
     assert(!created);
     std::println("failed to create unnamed semaphore due to: {}", posix::to_string(created.error()).data());
+
+    auto mutex_created = posix::mutex::create();
+    assert(mutex_created.has_value());
+    auto& mutex = mutex_created.value();
+    assert(mutex.lock());
+    assert(mutex.unlock());
     return EXIT_SUCCESS;
 }

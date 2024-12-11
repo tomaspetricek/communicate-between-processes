@@ -26,8 +26,8 @@ namespace posix
             {
                 return std::expected<posix::mutex, error_code>{std::in_place, handle};
             }
-            assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            assert(!operation_successful(ret));
+            return std::unexpected{error_code{ret}};;
         }
 
         std::expected<void, error_code> lock() noexcept
@@ -38,8 +38,8 @@ namespace posix
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            assert(!operation_successful(ret));
+            return std::unexpected{error_code{ret}};;
         }
 
         std::expected<void, error_code> unlock() noexcept
@@ -50,8 +50,8 @@ namespace posix
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            assert(!operation_successful(ret));
+            return std::unexpected{error_code{ret}};
         }
 
         ~mutex() noexcept
