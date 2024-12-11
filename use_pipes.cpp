@@ -1,3 +1,4 @@
+#include <cassert>
 #include <print>
 #include <stdio.h>
 #include <string.h>
@@ -19,31 +20,31 @@ namespace
         auto& pipe = pipe_created.value();
 
         // fork the process
-        const pid_t pid = fork();
+        const auto process_created = posix::create_process();
 
-        if (pid == -1)
+        if (!process_created)
         {
-            perror("fork");
+            std::print("failed to create process due to: {}", posix::to_string(process_created.error()).data());
             return EXIT_FAILURE;
         }
         // child process
-        else if (posix::is_child_process(pid))
+        else if (posix::is_child_process(process_created.value()))
         {
             // close unused write end
-            pipe.close_write_end();
+            assert(pipe.close_write_end());
             char buffer[128];
-            pipe.read(buffer, sizeof(buffer));
+            assert(pipe.read(buffer, sizeof(buffer)));
             printf("child received: %s\n", buffer);
-            pipe.close_read_end();
+            assert(pipe.close_read_end());
         }
         // parent process
         else
         {
             // close unused read end
-            pipe.close_read_end();
+            assert(pipe.close_read_end());
             char message[] = "Hello, from parent";
-            pipe.write(message, sizeof(message));
-            pipe.close_write_end();
+            assert(pipe.write(message, sizeof(message)));
+            assert(pipe.close_write_end());
         }
         return EXIT_SUCCESS;
     }

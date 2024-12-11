@@ -7,7 +7,7 @@
 #include <expected>
 #include <unistd.h>
 
-#include "error_code.hpp"
+#include "posix/error_code.hpp"
 #include "posix/utility.hpp"
 
 namespace posix
@@ -32,7 +32,8 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
+            ;
         }
 
         bool is_end_open(std::size_t index) const
@@ -55,7 +56,8 @@ namespace posix
                 return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
+            ;
         }
 
         pipe(const pipe &other) = delete;
@@ -79,12 +81,13 @@ namespace posix
             assert(is_write_end_open());
             const auto ret = ::write(fds_[write_end_index], data, count);
 
-            if (operation_successful(ret))
+            if (!operation_failed(ret))
             {
+                assert(ret == count);
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected(errno);
+            return std::unexpected(error_code{errno});
         }
 
         std::expected<void, error_code> read(void *data, size_t count) const noexcept
@@ -92,22 +95,24 @@ namespace posix
             assert(is_read_end_open());
             const auto ret = ::read(fds_[read_end_index], data, count);
 
-            if (operation_successful(ret))
+            if (!operation_failed(ret))
             {
+                assert(ret <= count);
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
+            ;
         }
 
-        void close_read_end() noexcept
+        std::expected<void, error_code> close_read_end() noexcept
         {
-            close_end(read_end_index);
+            return close_end(read_end_index);
         }
 
-        void close_write_end() noexcept
+        std::expected<void, error_code> close_write_end() noexcept
         {
-            close_end(write_end_index);
+            return close_end(write_end_index);
         }
 
         ~pipe() noexcept

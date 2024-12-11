@@ -2,11 +2,29 @@
 #define POSIX_PROCESS_HPP
 
 #include <unistd.h>
+#include <expected>
+#include <errno.h>
 
-namespace posix {
-    constexpr bool is_child_process(pid_t pid) noexcept
+#include "posix/error_code.hpp"
+
+namespace posix
+{
+    using process_id_t = pid_t;
+
+    constexpr bool is_child_process(process_id_t pid) noexcept
     {
         return pid == 0;
+    }
+
+    std::expected<process_id_t, error_code> create_process() noexcept
+    {
+        const process_id_t pid = fork();
+
+        if (pid != -1)
+        {
+            return pid;
+        }
+        return std::unexpected{error_code{errno}};
     }
 }
 
