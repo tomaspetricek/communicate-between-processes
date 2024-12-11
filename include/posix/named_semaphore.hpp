@@ -18,7 +18,7 @@ namespace posix
     enum class semaphore_open_flag
     {
         create,               // O_CREAT
-        create_if_not_exists, // O_EXCL
+        exclusive_create, // O_EXCL
     };
 
     class named_semaphore
@@ -31,7 +31,7 @@ namespace posix
             {
                 return O_CREAT;
             }
-            assert(flag == semaphore_open_flag::create_if_not_exists);
+            assert(flag == semaphore_open_flag::exclusive_create);
             return O_CREAT | O_EXCL;
         }
 
