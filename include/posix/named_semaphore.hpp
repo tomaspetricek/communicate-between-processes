@@ -49,7 +49,7 @@ namespace posix
                 return std::expected<posix::named_semaphore, error_code>{std::in_place, handle, std::move(name)};
             }
             assert(handle == SEM_FAILED);
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         named_semaphore(const named_semaphore &other) = delete;
@@ -69,7 +69,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         // decrements the semaphore value
@@ -84,7 +84,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         // retrieves the current value of the semaphore
@@ -98,7 +98,7 @@ namespace posix
                 return val;
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         // removes the named semaphore from the system
@@ -112,7 +112,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         ~named_semaphore() noexcept
@@ -135,7 +135,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
     };
 } // namespace posix

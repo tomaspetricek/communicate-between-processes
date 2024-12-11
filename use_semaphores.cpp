@@ -94,6 +94,6 @@ int main(int, char **)
     filled_slots.unlink();
     const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
     assert(!created);
-    std::println("failed to create unnamed semaphore due to: {}", posix::error_to_string(created.error()).data());
+    std::println("failed to create unnamed semaphore due to: {}", posix::to_string(created.error()).data());
     return EXIT_SUCCESS;
 }

@@ -32,7 +32,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         bool is_end_open(std::size_t index) const
@@ -55,7 +55,7 @@ namespace posix
                 return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         pipe(const pipe &other) = delete;
@@ -97,7 +97,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{errno};
+            return std::unexpected{error_code{errno}};;
         }
 
         void close_read_end() noexcept

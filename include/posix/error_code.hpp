@@ -8,11 +8,19 @@
 
 namespace posix
 {
-    using error_code = decltype(EINVAL);
+    struct error_code {
+        using value_type = decltype(EINVAL);
 
-    std::string_view error_to_string(error_code error) noexcept
+        value_type code;
+
+        explicit operator value_type() const noexcept {
+            return code;
+        }
+    };
+
+    std::string_view to_string(error_code error) noexcept
     {
-        return strerror(error);
+        return strerror(error.code);
     }
 }
 
