@@ -22,6 +22,8 @@ namespace posix
             pthread_mutex_t handle;
             const auto ret = pthread_mutex_init(&handle, nullptr);
 
+            // in pthread the return value is zero on success
+            // on failure it is set directly to the error code, errno is not set
             if (operation_successful(ret))
             {
                 return std::expected<posix::mutex, error_code>{std::in_place, handle};
@@ -39,7 +41,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(!operation_successful(ret));
-            return std::unexpected{error_code{ret}};;
+            return std::unexpected{error_code{ret}};
         }
 
         std::expected<void, error_code> unlock() noexcept
