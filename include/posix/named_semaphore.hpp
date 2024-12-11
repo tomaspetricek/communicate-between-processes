@@ -12,6 +12,7 @@
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
 
+
 namespace posix
 {
     enum class semaphore_open_flag
@@ -41,6 +42,7 @@ namespace posix
         create(std::string name, const semaphore_open_flag &flag, mode_t mode,
                unsigned int init_value) noexcept
         {
+            assert(is_valid_ipc_name(name));
             handle_type *handle =
                 ::sem_open(name.data(), translate_flag(flag), mode, init_value);
 
