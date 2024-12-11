@@ -6,6 +6,7 @@
 #include <errno.h>
 
 #include "posix/error_code.hpp"
+#include "posix/utility.hpp"
 
 namespace posix
 {
@@ -20,7 +21,7 @@ namespace posix
     {
         const process_id_t pid = fork();
 
-        if (pid != -1)
+        if (!operation_failed(pid))
         {
             return pid;
         }
