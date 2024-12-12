@@ -5,7 +5,7 @@
 
 int main(int, char **)
 {
-    const auto perms = posix::permissions_builder{}
+    constexpr auto perms = posix::permissions_builder{}
                            .owner_can_read()
                            .owner_can_write()
                            .owner_can_execute()
@@ -16,5 +16,5 @@ int main(int, char **)
                            .others_can_write()
                            .others_can_execute()
                            .get();
-    assert(0777 == perms);
+    static_assert(0777 == perms);
 }

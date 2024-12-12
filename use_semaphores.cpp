@@ -16,15 +16,17 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    const auto perms = posix::permissions_builder{}
-                           .owner_can_read()
-                           .owner_can_write()
-                           .group_can_read()
-                           .others_can_read()
-                           .get();
-    const auto flags = posix::named_semaphore_open_flags_builder{}
-                           .create_only()
-                           .get();
+    constexpr auto perms = posix::permissions_builder{}
+                               .owner_can_read()
+                               .owner_can_write()
+                               .group_can_read()
+                               .others_can_read()
+                               .get();
+    static_assert(0644 == perms);
+    constexpr auto flags = posix::named_semaphore_open_flags_builder{}
+                               .create_only()
+                               .get();
+    static_assert(flags == (O_CREAT | O_EXCL));
     auto empty_slots_created = posix::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
     auto filled_slots_created = posix::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
     auto &empty_slots = empty_slots_created.value();                                                // tracks available slots in the buffer

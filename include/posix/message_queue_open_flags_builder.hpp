@@ -15,11 +15,11 @@ namespace posix
         write_only, // O_WRONLY
         read_write, // O_RDWR
     };
-    
+
     class message_queue_open_flags_builder : public open_flags_builder<message_queue_open_flags_builder>
     {
     public:
-        explicit message_queue_open_flags_builder(access_mode access) noexcept
+        constexpr explicit message_queue_open_flags_builder(access_mode access) noexcept
         {
             constexpr std::size_t access_mode_count = 3;
             const auto access_index = static_cast<std::size_t>(access);
@@ -30,13 +30,13 @@ namespace posix
             flags_ |= access_flags[access_index];
         }
 
-        message_queue_open_flags_builder &is_blocking() noexcept
+        constexpr message_queue_open_flags_builder &is_blocking() noexcept
         {
             // default mode
             return *this;
         }
 
-        message_queue_open_flags_builder &is_non_blocking() noexcept
+        constexpr message_queue_open_flags_builder &is_non_blocking() noexcept
         {
             flags_ |= O_NONBLOCK;
             return *this;

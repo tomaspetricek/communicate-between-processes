@@ -10,7 +10,7 @@ namespace posix
     class named_semaphore_open_flags_builder : public open_flags_builder<named_semaphore_open_flags_builder>
     {
     public:
-        explicit named_semaphore_open_flags_builder() noexcept = default;
+        constexpr explicit named_semaphore_open_flags_builder() noexcept = default;
     };
 } // namespace posix
 
