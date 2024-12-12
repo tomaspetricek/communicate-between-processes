@@ -23,7 +23,7 @@ namespace
                            .others_can_read()
                            .get();
     const auto flags = posix::named_semaphore_open_flags_builder{}
-                           .create()
+                           .create_exclusively()
                            .get();
     auto empty_slots_created = posix::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
     auto filled_slots_created = posix::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
@@ -103,6 +103,7 @@ int main(int, char **)
     }
     empty_slots.unlink();
     filled_slots.unlink();
+
     const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
     assert(!created);
     std::println("failed to create unnamed semaphore due to: {}", posix::to_string(created.error()).data());

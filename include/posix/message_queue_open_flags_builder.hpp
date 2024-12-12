@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include "posix/open_flags.hpp"
+#include "posix/open_flags_builder.hpp"
 
 namespace posix
 {
@@ -15,10 +16,8 @@ namespace posix
         read_write, // O_RDWR
     };
     
-    class message_queue_open_flags_builder
+    class message_queue_open_flags_builder : public open_flags_builder<message_queue_open_flags_builder>
     {
-        open_flags_t flags_{no_open_flags};
-
     public:
         explicit message_queue_open_flags_builder(access_mode access) noexcept
         {
@@ -31,24 +30,6 @@ namespace posix
             flags_ |= access_flags[access_index];
         }
 
-        message_queue_open_flags_builder &create_from_opened() noexcept
-        {
-            // default creation
-            return *this;
-        };
-
-        message_queue_open_flags_builder &create() noexcept
-        {
-            flags_ |= O_CREAT;
-            return *this;
-        }
-
-        message_queue_open_flags_builder &create_exclusively() noexcept
-        {
-            flags_ |= O_CREAT | O_EXCL;
-            return *this;
-        }
-
         message_queue_open_flags_builder &is_blocking() noexcept
         {
             // default mode
@@ -59,11 +40,6 @@ namespace posix
         {
             flags_ |= O_NONBLOCK;
             return *this;
-        }
-
-        open_flags_t get() const noexcept
-        {
-            return flags_;
         }
     };
 } // namespace posix
