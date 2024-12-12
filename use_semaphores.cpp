@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <print>
-#include <semaphore.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <unistd.h>
 
 #include "posix/mutex.hpp"
@@ -86,19 +88,24 @@ int main(int, char **)
     assert(empty_slots_created.has_value());
     assert(filled_slots_created.has_value());
 
-    // cretae producer and conumer threads
-    pthread_t producers[2], consumers[2];
-    int producer_ids[2] = {1, 2};
-    int consumer_ids[2] = {1, 2};
+    buffer.reserve(buffer_size);
 
-    for (int i = 0; i < 2; ++i)
+    // cretae producer and conumer threads
+    constexpr std::size_t producer_count{2}, consumer_count{2};
+    pthread_t producers[producer_count], consumers[consumer_count];
+    int producer_ids[producer_count] = {1, 2};
+    int consumer_ids[consumer_count];
+    std::copy(std::begin(producer_ids), std::end(producer_ids), std::begin(consumer_ids));
+
+    static_assert(producer_count == consumer_count);
+    for (std::size_t i{0}; i < producer_count; ++i)
     {
         pthread_create(&producers[i], nullptr, producer, &producer_ids[i]);
         pthread_create(&consumers[i], nullptr, consumer, &consumer_ids[i]);
     }
 
     // wait for threads to finish
-    for (int i = 0; i < 2; ++i)
+    for (std::size_t i{0}; i < producer_count; ++i)
     {
         pthread_join(producers[i], nullptr);
         pthread_join(consumers[i], nullptr);
