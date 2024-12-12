@@ -9,62 +9,28 @@
 
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
+#include "posix/open_flags.hpp"
 
 namespace posix
 {
-    enum class access_mode
-    {
-        read_only,
-        write_only,
-        read_write,
-    };
-
-    enum class creation_mode
-    {
-        already_exists,
-        create,           // if exists just open, otherwise create it
-        exclusive_create, // create only if it does not exist
-    };
-
-    class open_flags
+    class message_queue_open_flags
     {
         access_mode access_;
         creation_mode creation_;
         bool is_blocking_;
 
-        int translate_access_mode() const noexcept
-        {
-            if (access_ == access_mode::read_only)
-            {
-                return O_RDONLY;
-            }
-            if (access_ == access_mode::write_only)
-            {
-                return O_WRONLY;
-            }
-            assert(access_ == access_mode::read_write);
-            return O_RDWR;
-        }
-
     public:
-        explicit open_flags(access_mode access,
-                            creation_mode creation = creation_mode::already_exists,
-                            bool is_blocking = true) noexcept
+        explicit message_queue_open_flags(access_mode access,
+                                          creation_mode creation = creation_mode::already_exists,
+                                          bool is_blocking = true) noexcept
             : access_{access}, creation_{creation}, is_blocking_{is_blocking} {}
 
         int translate() const noexcept
         {
-            int flags = 0;
-            flags |= translate_access_mode();
+            auto flags = no_open_flags;
+            flags |= posix::translate_open_flag(access_);
+            flags |= posix::translate_open_flag(creation_);
 
-            if (creation_ == creation_mode::create)
-            {
-                flags |= O_CREAT;
-            }
-            if (creation_ == creation_mode::exclusive_create)
-            {
-                flags |= O_CREAT | O_EXCL;
-            }
             if (is_blocking_ == false)
             {
                 flags |= O_NONBLOCK;
@@ -79,10 +45,10 @@ namespace posix
         explicit message_queue() noexcept = default;
 
         static std::expected<posix::message_queue, error_code>
-        create(std::string name, const open_flags &flags) noexcept
+        create(std::string name, const message_queue_open_flags &flags) noexcept
         {
             assert(is_valid_ipc_name(name));
-            const auto translate_flags = flags.translate();
+            const auto translated_flags = flags.translate();
             // mq_open(...)
             return std::expected<posix::message_queue, error_code>{std::in_place};
         }

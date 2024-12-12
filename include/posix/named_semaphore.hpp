@@ -1,57 +1,58 @@
 #ifndef POSIX_NAMED_SEMAPHORE_HPP
 #define POSIX_NAMED_SEMAPHORE_HPP
 
-#include "errno.h"
-#include "semaphore.h"
+#include <errno.h>
+#include <semaphore.h>
 #include <cassert>
 #include <expected>
 #include <fcntl.h>
-#include <string_view>
 #include <new>
+#include <string_view>
 
 #include "posix/error_code.hpp"
+#include "posix/open_flags.hpp"
 #include "posix/utility.hpp"
-
 
 namespace posix
 {
-    enum class semaphore_open_flag
+    class named_semaphore_open_flags
     {
-        create,               // O_CREAT
-        exclusive_create, // O_EXCL
+        creation_mode creation_;
+
+    public:
+        explicit named_semaphore_open_flags(
+            creation_mode creation = creation_mode::already_exists) noexcept
+            : creation_{creation} {}
+
+        open_flag_t translate() const noexcept
+        {
+            return posix::translate_open_flag(creation_);
+        }
     };
 
     class named_semaphore
     {
         using handle_type = sem_t;
 
-        static int translate_flag(const semaphore_open_flag &flag) noexcept
-        {
-            if (flag == semaphore_open_flag::create)
-            {
-                return O_CREAT;
-            }
-            assert(flag == semaphore_open_flag::exclusive_create);
-            return O_CREAT | O_EXCL;
-        }
-
     public:
-        explicit named_semaphore(handle_type *handle, std::string &&name) noexcept : handle_{handle}, name_{std::move(name)} {}
+        explicit named_semaphore(handle_type *handle, std::string &&name) noexcept
+            : handle_{handle}, name_{std::move(name)} {}
 
         static std::expected<posix::named_semaphore, error_code>
-        create(std::string name, const semaphore_open_flag &flag, mode_t mode,
+        create(std::string name, const named_semaphore_open_flags &flags, mode_t mode,
                unsigned int init_value) noexcept
         {
             assert(is_valid_ipc_name(name));
             handle_type *handle =
-                ::sem_open(name.data(), translate_flag(flag), mode, init_value);
+                ::sem_open(name.data(), flags.translate(), mode, init_value);
 
             if (handle != SEM_FAILED)
             {
-                return std::expected<posix::named_semaphore, error_code>{std::in_place, handle, std::move(name)};
+                return std::expected<posix::named_semaphore, error_code>{
+                    std::in_place, handle, std::move(name)};
             }
             assert(handle == SEM_FAILED);
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
         }
 
         named_semaphore(const named_semaphore &other) = delete;
@@ -71,7 +72,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
         }
 
         // decrements the semaphore value
@@ -86,7 +87,8 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
+            ;
         }
 
         // retrieves the current value of the semaphore
@@ -100,7 +102,7 @@ namespace posix
                 return val;
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
         }
 
         // removes the named semaphore from the system
@@ -114,13 +116,10 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
         }
 
-        ~named_semaphore() noexcept
-        {
-            assert(close());
-        }
+        ~named_semaphore() noexcept { assert(close()); }
 
     private:
         handle_type *handle_;
@@ -137,7 +136,7 @@ namespace posix
                 return std::expected<void, error_code>{};
             }
             assert(operation_failed(ret));
-            return std::unexpected{error_code{errno}};;
+            return std::unexpected{error_code{errno}};
         }
     };
 } // namespace posix

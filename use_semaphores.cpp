@@ -14,10 +14,10 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    auto empty_slots_created = posix::named_semaphore::create("/empty", posix::semaphore_open_flag::create, 0644, buffer_size); // all slots available in the beginning
-    auto filled_slots_created = posix::named_semaphore::create("/filled", posix::semaphore_open_flag::create, 0644, 0);         // no slots are filled in the beginning
-    auto &empty_slots = empty_slots_created.value();                                                                            // tracks available slots in the buffer
-    auto &filled_slots = filled_slots_created.value();                                                                          // tracks the number of items in the buffer
+    auto empty_slots_created = posix::named_semaphore::create("/empty", posix::named_semaphore_open_flags{posix::creation_mode::create}, 0644, buffer_size); // all slots available in the beginning
+    auto filled_slots_created = posix::named_semaphore::create("/filled", posix::named_semaphore_open_flags{posix::creation_mode::create}, 0644, 0);         // no slots are filled in the beginning
+    auto &empty_slots = empty_slots_created.value();                                                                                                   // tracks available slots in the buffer
+    auto &filled_slots = filled_slots_created.value();                                                                                                 // tracks the number of items in the buffer
     auto buffer_mutex_created = posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 
@@ -98,7 +98,7 @@ int main(int, char **)
 
     auto mutex_created = posix::mutex::create();
     assert(mutex_created.has_value());
-    auto& mutex = mutex_created.value();
+    auto &mutex = mutex_created.value();
     assert(mutex.lock());
     assert(mutex.unlock());
     return EXIT_SUCCESS;
