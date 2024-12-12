@@ -7,6 +7,8 @@
 #include "posix/mutex.hpp"
 #include "posix/named_semaphore.hpp"
 #include "posix/unnamed_semaphore.hpp"
+#include "posix/permissions_builder.hpp"
+#include "posix/named_semaphore_open_flags_builder.hpp"
 
 namespace
 {
@@ -14,10 +16,19 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    auto empty_slots_created = posix::named_semaphore::create("/empty", posix::named_semaphore_open_flags{posix::creation_mode::create}, 0644, buffer_size); // all slots available in the beginning
-    auto filled_slots_created = posix::named_semaphore::create("/filled", posix::named_semaphore_open_flags{posix::creation_mode::create}, 0644, 0);         // no slots are filled in the beginning
-    auto &empty_slots = empty_slots_created.value();                                                                                                   // tracks available slots in the buffer
-    auto &filled_slots = filled_slots_created.value();                                                                                                 // tracks the number of items in the buffer
+    const auto perms = posix::permissions_builder{}
+                           .owner_can_read()
+                           .owner_can_write()
+                           .group_can_read()
+                           .others_can_read()
+                           .get();
+    const auto flags = posix::named_semaphore_open_flags_builder{}
+                           .create()
+                           .get();
+    auto empty_slots_created = posix::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
+    auto filled_slots_created = posix::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
+    auto &empty_slots = empty_slots_created.value();                                                // tracks available slots in the buffer
+    auto &filled_slots = filled_slots_created.value();                                              // tracks the number of items in the buffer
     auto buffer_mutex_created = posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 

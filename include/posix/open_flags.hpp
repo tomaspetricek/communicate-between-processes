@@ -20,10 +20,10 @@ namespace posix
         exclusive_create, // O_CREAT | O_EXCL - create only if it does not exist
     };
 
-    using open_flag_t = int;
-    constexpr open_flag_t no_open_flags{0};
+    using open_flags_t = int;
+    constexpr open_flags_t no_open_flags{0};
 
-    static open_flag_t translate_open_flag(creation_mode mode) noexcept
+    static open_flags_t translate_open_flag(creation_mode mode) noexcept
     {
         if (mode == creation_mode::create)
         {
@@ -37,7 +37,7 @@ namespace posix
         return no_open_flags;
     }
 
-    static open_flag_t translate_open_flag(access_mode mode) noexcept
+    static open_flags_t translate_open_flag(access_mode mode) noexcept
     {
         if (mode == access_mode::read_only)
         {

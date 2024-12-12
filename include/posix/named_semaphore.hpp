@@ -15,21 +15,6 @@
 
 namespace posix
 {
-    class named_semaphore_open_flags
-    {
-        creation_mode creation_;
-
-    public:
-        explicit named_semaphore_open_flags(
-            creation_mode creation = creation_mode::already_exists) noexcept
-            : creation_{creation} {}
-
-        open_flag_t translate() const noexcept
-        {
-            return posix::translate_open_flag(creation_);
-        }
-    };
-
     class named_semaphore
     {
         using handle_type = sem_t;
@@ -39,12 +24,12 @@ namespace posix
             : handle_{handle}, name_{std::move(name)} {}
 
         static std::expected<posix::named_semaphore, error_code>
-        create(std::string name, const named_semaphore_open_flags &flags, mode_t mode,
+        create(std::string name, const open_flags_t &flags, mode_t mode,
                unsigned int init_value) noexcept
         {
             assert(is_valid_ipc_name(name));
             handle_type *handle =
-                ::sem_open(name.data(), flags.translate(), mode, init_value);
+                ::sem_open(name.data(), flags, mode, init_value);
 
             if (handle != SEM_FAILED)
             {
