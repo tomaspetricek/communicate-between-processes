@@ -13,42 +13,15 @@
 
 namespace posix
 {
-    class message_queue_open_flags
-    {
-        access_mode access_;
-        creation_mode creation_;
-        bool is_blocking_;
-
-    public:
-        explicit message_queue_open_flags(access_mode access,
-                                          creation_mode creation = creation_mode::already_exists,
-                                          bool is_blocking = true) noexcept
-            : access_{access}, creation_{creation}, is_blocking_{is_blocking} {}
-
-        int translate() const noexcept
-        {
-            auto flags = no_open_flags;
-            flags |= posix::translate_open_flag(access_);
-            flags |= posix::translate_open_flag(creation_);
-
-            if (is_blocking_ == false)
-            {
-                flags |= O_NONBLOCK;
-            }
-            return flags;
-        }
-    };
-
     class message_queue
     {
     public:
         explicit message_queue() noexcept = default;
 
         static std::expected<posix::message_queue, error_code>
-        create(std::string name, const message_queue_open_flags &flags) noexcept
+        create(std::string name, open_flags_t flags) noexcept
         {
             assert(is_valid_ipc_name(name));
-            const auto translated_flags = flags.translate();
             // mq_open(...)
             return std::expected<posix::message_queue, error_code>{std::in_place};
         }

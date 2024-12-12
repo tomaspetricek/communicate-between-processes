@@ -1,9 +1,13 @@
 #include <cassert>
 
-#include "posix/message_queue.hpp"
+#include "posix/message_queue_open_flags_builder.hpp"
 
 int main(int, char **)
 {
-    posix::message_queue_open_flags flags{posix::access_mode::read_write, posix::creation_mode::exclusive_create, false};
-    assert((O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK) == flags.translate());
+    const auto flags =
+        posix::message_queue_open_flags_builder{posix::access_mode::read_write}
+            .create_exclusively()
+            .is_non_blocking()
+            .get();
+    assert((O_RDWR | O_CREAT | O_EXCL | O_NONBLOCK) == flags);
 }
