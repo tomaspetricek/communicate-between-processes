@@ -16,19 +16,19 @@ namespace posix
         explicit open_flags_builder() noexcept = default;
 
     public:
-        concrete_builder_type &create_from_opened() noexcept
+        concrete_builder_type &open_existing() noexcept
         {
             // default creation
             return *static_cast<concrete_builder_type*>(this);
         };
 
-        concrete_builder_type &create() noexcept
+        concrete_builder_type &create_if_absent() noexcept
         {
             flags_ |= O_CREAT;
             return *static_cast<concrete_builder_type*>(this);
         }
 
-        concrete_builder_type &create_exclusively() noexcept
+        concrete_builder_type &create_only() noexcept
         {
             flags_ |= O_CREAT | O_EXCL;
             return *static_cast<concrete_builder_type*>(this);

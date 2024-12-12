@@ -23,7 +23,7 @@ namespace
                            .others_can_read()
                            .get();
     const auto flags = posix::named_semaphore_open_flags_builder{}
-                           .create_exclusively()
+                           .create_only()
                            .get();
     auto empty_slots_created = posix::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
     auto filled_slots_created = posix::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
