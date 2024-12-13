@@ -27,6 +27,16 @@ namespace posix
         }
         return std::unexpected{error_code{errno}};
     }
+
+    process_id_t get_process_id() noexcept
+    {
+        return getpid();
+    }
+
+    process_id_t get_parent_process_id() noexcept
+    {
+        return getppid();
+    }
 }
 
 #endif // POSIX_PROCESS_HPP
