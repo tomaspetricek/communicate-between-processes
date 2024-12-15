@@ -7,7 +7,7 @@
 #include <sys/mman.h>
 
 #include "posix/error_code.hpp"
-#include "posix/utility.hpp"
+#include "posix/ipc/utility.hpp"
 
 
 namespace posix::ipc
@@ -15,7 +15,7 @@ namespace posix::ipc
     class shared_memory
     {
     public:
-        static std::expected<posix::shared_memory, error_code> create(std::string name) noexcept
+        static std::expected<shared_memory, error_code> create(std::string name) noexcept
         {
             assert(is_valid_ipc_name(name));
         }
