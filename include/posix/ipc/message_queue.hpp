@@ -21,7 +21,7 @@ namespace posix::ipc
         static std::expected<posix::message_queue, error_code>
         create(std::string name, open_flags_t flags) noexcept
         {
-            assert(is_valid_ipc_name(name));
+            assert(is_valid_pathname(name));
             // mq_open(...)
             return std::expected<posix::message_queue, error_code>{std::in_place};
         }

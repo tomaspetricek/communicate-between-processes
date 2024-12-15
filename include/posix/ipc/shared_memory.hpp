@@ -17,7 +17,7 @@ namespace posix::ipc
     public:
         static std::expected<shared_memory, error_code> create(std::string name) noexcept
         {
-            assert(is_valid_ipc_name(name));
+            assert(is_valid_pathname(name));
         }
 
         std::expected<void, error_code> unlink() noexcept {

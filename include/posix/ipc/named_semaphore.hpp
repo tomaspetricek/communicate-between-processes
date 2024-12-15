@@ -27,7 +27,7 @@ namespace posix::ipc
         create(std::string name, const open_flags_t &flags, mode_t mode,
                unsigned int init_value) noexcept
         {
-            assert(is_valid_ipc_name(name));
+            assert(is_valid_pathname(name));
             handle_type *handle =
                 ::sem_open(name.data(), flags, mode, init_value);
 
