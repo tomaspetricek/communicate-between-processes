@@ -30,6 +30,11 @@ namespace unix::system_v::ipc
         }
         return std::unexpected{error_code{errno}};
     }
+
+    key_t get_unique_key() noexcept
+    {
+        return IPC_PRIVATE;
+    }
 }
 
 #endif // UNIX_SYSTEM_V_IPC_KEY_HPP
