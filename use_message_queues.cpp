@@ -1,11 +1,11 @@
 #include <cassert>
 
-#include "posix/message_queue_open_flags_builder.hpp"
+#include "posix/ipc/message_queue_open_flags_builder.hpp"
 
 int main(int, char **)
 {
     constexpr auto flags =
-        posix::message_queue_open_flags_builder{posix::access_mode::read_write}
+        posix::ipc::message_queue_open_flags_builder{posix::ipc::access_mode::read_write}
             .create_only()
             .is_non_blocking()
             .get();

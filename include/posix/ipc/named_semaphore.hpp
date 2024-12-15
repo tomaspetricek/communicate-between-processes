@@ -1,5 +1,5 @@
-#ifndef POSIX_NAMED_SEMAPHORE_HPP
-#define POSIX_NAMED_SEMAPHORE_HPP
+#ifndef POSIX_IPC_NAMED_SEMAPHORE_HPP
+#define POSIX_IPC_NAMED_SEMAPHORE_HPP
 
 #include <errno.h>
 #include <semaphore.h>
@@ -10,10 +10,10 @@
 #include <string_view>
 
 #include "posix/error_code.hpp"
-#include "posix/open_flags.hpp"
-#include "posix/utility.hpp"
+#include "posix/ipc/open_flags.hpp"
+#include "posix/ipc/utility.hpp"
 
-namespace posix
+namespace posix::ipc
 {
     class named_semaphore
     {
@@ -23,7 +23,7 @@ namespace posix
         explicit named_semaphore(handle_type *handle, std::string &&name) noexcept
             : handle_{handle}, name_{std::move(name)} {}
 
-        static std::expected<posix::named_semaphore, error_code>
+        static std::expected<named_semaphore, error_code>
         create(std::string name, const open_flags_t &flags, mode_t mode,
                unsigned int init_value) noexcept
         {
@@ -33,7 +33,7 @@ namespace posix
 
             if (handle != SEM_FAILED)
             {
-                return std::expected<posix::named_semaphore, error_code>{
+                return std::expected<named_semaphore, error_code>{
                     std::in_place, handle, std::move(name)};
             }
             assert(handle == SEM_FAILED);
@@ -124,6 +124,6 @@ namespace posix
             return std::unexpected{error_code{errno}};
         }
     };
-} // namespace posix
+} // namespace posix::ipc
 
-#endif // POSIX_NAMED_SEMAPHORE_HPP
+#endif // POSIX_IPC_NAMED_SEMAPHORE_HPP

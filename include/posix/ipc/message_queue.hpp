@@ -1,5 +1,5 @@
-#ifndef POSIX_MESSAGE_QUEUE_HPP
-#define POSIX_MESSAGE_QUEUE_HPP
+#ifndef POSIX_IPC_MESSAGE_QUEUE_HPP
+#define POSIX_IPC_MESSAGE_QUEUE_HPP
 
 #include <cassert>
 #include <expected>
@@ -11,7 +11,7 @@
 #include "posix/utility.hpp"
 #include "posix/open_flags.hpp"
 
-namespace posix
+namespace posix::ipc
 {
     class message_queue
     {
@@ -62,6 +62,6 @@ namespace posix
             return std::expected<void, error_code>{};
         }
     };
-} // namespace posix
+} // namespace posix::ipc
 
-#endif // POSIX_MESSAGE_QUEUE_HPP
+#endif // POSIX_IPC_MESSAGE_QUEUE_HPP

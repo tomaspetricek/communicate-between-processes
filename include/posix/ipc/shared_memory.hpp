@@ -1,5 +1,5 @@
-#ifndef POSIX_SHARED_MEMORY_HPP
-#define POSIX_SHARED_MEMORY_HPP
+#ifndef POSIX_IPC_SHARED_MEMORY_HPP
+#define POSIX_IPC_SHARED_MEMORY_HPP
 
 #include <cassert>
 #include <expected>
@@ -10,7 +10,7 @@
 #include "posix/utility.hpp"
 
 
-namespace posix
+namespace posix::ipc
 {
     class shared_memory
     {
@@ -32,4 +32,4 @@ namespace posix
     };
 }
 
-#endif // POSIX_SHARED_MEMORY_HPP
+#endif // POSIX_IPC_SHARED_MEMORY_HPP

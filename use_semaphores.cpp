@@ -7,10 +7,10 @@
 #include <unistd.h>
 
 #include "posix/mutex.hpp"
-#include "posix/named_semaphore.hpp"
-#include "posix/unnamed_semaphore.hpp"
+#include "posix/ipc/named_semaphore.hpp"
+#include "posix/ipc/unnamed_semaphore.hpp"
 #include "posix/permissions_builder.hpp"
-#include "posix/named_semaphore_open_flags_builder.hpp"
+#include "posix/ipc/named_semaphore_open_flags_builder.hpp"
 
 namespace
 {
@@ -25,14 +25,14 @@ namespace
                                .others_can_read()
                                .get();
     static_assert(0644 == perms);
-    constexpr auto flags = posix::named_semaphore_open_flags_builder{}
+    constexpr auto flags = posix::ipc::named_semaphore_open_flags_builder{}
                                .create_only()
                                .get();
     static_assert(flags == (O_CREAT | O_EXCL));
-    auto empty_slots_created = posix::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
-    auto filled_slots_created = posix::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
-    auto &empty_slots = empty_slots_created.value();                                                // tracks available slots in the buffer
-    auto &filled_slots = filled_slots_created.value();                                              // tracks the number of items in the buffer
+    auto empty_slots_created = posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
+    auto filled_slots_created = posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
+    auto &empty_slots = empty_slots_created.value();                                                     // tracks available slots in the buffer
+    auto &filled_slots = filled_slots_created.value();                                                   // tracks the number of items in the buffer
     auto buffer_mutex_created = posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 
@@ -113,7 +113,7 @@ int main(int, char **)
     empty_slots.unlink();
     filled_slots.unlink();
 
-    const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
+    const auto created = posix::ipc::unnamed_semaphore::create(posix::ipc::shared_between::threads, 1);
     assert(!created);
     std::println("failed to create unnamed semaphore due to: {}", posix::to_string(created.error()).data());
 

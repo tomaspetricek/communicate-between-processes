@@ -1,5 +1,5 @@
-#ifndef ERROR_CODE_HPP
-#define ERROR_CODE_HPP
+#ifndef POSIX_ERROR_CODE_HPP
+#define POSIX_ERROR_CODE_HPP
 
 #include "errno.h"
 #include <expected>
@@ -24,4 +24,4 @@ namespace posix
     }
 }
 
-#endif // ERROR_CODE_HPP
+#endif // POSIX_ERROR_CODE_HPP

@@ -1,5 +1,5 @@
-#ifndef POSIX_UNNAMED_SEMAPHORE_HPP
-#define POSIX_UNNAMED_SEMAPHORE_HPP
+#ifndef POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#define POSIX_IPC_UNNAMED_SEMAPHORE_HPP
 
 #include <cstdint>
 #include <errno.h>
@@ -10,7 +10,7 @@
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
 
-namespace posix
+namespace posix::ipc
 {
     enum class shared_between : std::uint8_t
     {
@@ -26,14 +26,14 @@ namespace posix
         // find a way to make it private
         explicit unnamed_semaphore(const handle_type &handle) noexcept : handle_{handle} {}
 
-        static std::expected<posix::unnamed_semaphore, error_code> create(shared_between shared, unsigned int init_value) noexcept
+        static std::expected<unnamed_semaphore, error_code> create(shared_between shared, unsigned int init_value) noexcept
         {
             handle_type handle;
             const auto ret = ::sem_init(&handle, static_cast<int>(shared), init_value);
 
             if (operation_successful(ret))
             {
-                return std::expected<posix::unnamed_semaphore, error_code>{std::in_place, handle};
+                return std::expected<unnamed_semaphore, error_code>{std::in_place, handle};
             }
             assert(operation_failed(ret));
             return std::unexpected{error_code{errno}};
@@ -83,4 +83,4 @@ namespace posix
     };
 }
 
-#endif // POSIX_UNNAMED_SEMAPHORE_HPP
+#endif // POSIX_IPC_UNNAMED_SEMAPHORE_HPP

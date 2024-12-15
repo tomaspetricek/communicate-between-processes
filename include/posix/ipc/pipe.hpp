@@ -1,5 +1,5 @@
-#ifndef POSIX_PIPE_HPP
-#define POSIX_PIPE_HPP
+#ifndef POSIX_IPC_PIPE_HPP
+#define POSIX_IPC_PIPE_HPP
 
 #include <array>
 #include <cassert>
@@ -10,7 +10,7 @@
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
 
-namespace posix
+namespace posix::ipc
 {
     class pipe
     {
@@ -46,14 +46,14 @@ namespace posix
         // find a way to make it private
         explicit pipe(const file_descriptors_t &fds) noexcept : fds_{fds} {}
 
-        static std::expected<posix::pipe, error_code> create() noexcept
+        static std::expected<posix::ipc::pipe, error_code> create() noexcept
         {
             file_descriptor_t fds[end_count];
             const auto ret = ::pipe(fds);
 
             if (operation_successful(ret))
             {
-                return std::expected<posix::pipe, error_code>{std::in_place, std::to_array(fds)};
+                return std::expected<posix::ipc::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
             assert(operation_failed(ret));
             return std::unexpected{error_code{errno}};
@@ -131,6 +131,6 @@ namespace posix
         file_descriptors_t fds_;
         uint8_t end_open_{0b11111111};
     };
-} // namespace posix
+} // namespace posix::ipc
 
-#endif // POSIX_PIPE_HPP
+#endif // POSIX_IPC_PIPE_HPP

@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "posix/pipe.hpp"
+#include "posix/ipc/pipe.hpp"
 #include "posix/process.hpp"
 
 namespace
 {
     int send_message_between_processes() noexcept
     {
-        auto pipe_created = posix::pipe::create();
+        auto pipe_created = posix::ipc::pipe::create();
 
         if (!pipe_created)
         {
