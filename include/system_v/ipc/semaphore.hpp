@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <expected>
+#include <sys/sem.h>
 
 
 namespace system_v::ipc
