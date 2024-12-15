@@ -1,10 +1,10 @@
-#ifndef POSIX_PERMISSIONS_HPP
-#define POSIX_PERMISSIONS_HPP
+#ifndef UNIX_POSIX_PERMISSIONS_HPP
+#define UNIX_POSIX_PERMISSIONS_HPP
 
 #include <cassert>
 #include <sys/stat.h>
 
-namespace posix
+namespace unix::posix
 {
     class permissions_builder
     {
@@ -72,4 +72,4 @@ namespace posix
     };
 } // namespace posix
 
-#endif // POSIX_PERMISSIONS_HPP
+#endif // UNIX_POSIX_PERMISSIONS_HPP

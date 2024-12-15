@@ -1,12 +1,12 @@
-#ifndef POSIX_IPC_UTILITY_HPP
-#define POSIX_IPC_UTILITY_HPP
+#ifndef UNIX_POSIX_IPC_UTILITY_HPP
+#define UNIX_POSIX_IPC_UTILITY_HPP
 
 #include <algorithm>
 #include <limits.h>
 #include <string_view>
 
 
-namespace posix
+namespace unix::posix
 {
     bool is_valid_pathname(const std::string_view &name) noexcept
     {
@@ -16,4 +16,4 @@ namespace posix
     }
 }
 
-#endif // POSIX_IPC_UTILITY_HPP
+#endif // UNIX_POSIX_IPC_UTILITY_HPP

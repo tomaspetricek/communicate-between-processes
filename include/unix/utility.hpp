@@ -1,9 +1,9 @@
-#ifndef POSIX_UTILITY_HPP
-#define POSIX_UTILITY_HPP
+#ifndef UNIX_UTILITY_HPP
+#define UNIX_UTILITY_HPP
 
 #include <limits.h>
 
-namespace posix
+namespace unix
 {
     constexpr bool operation_successful(int ret)
     {
@@ -16,4 +16,4 @@ namespace posix
     }
 }
 
-#endif // POSIX_UTILITY_HPP
+#endif // UNIX_UTILITY_HPP

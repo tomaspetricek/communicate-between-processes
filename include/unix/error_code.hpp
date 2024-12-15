@@ -1,12 +1,12 @@
-#ifndef POSIX_ERROR_CODE_HPP
-#define POSIX_ERROR_CODE_HPP
+#ifndef UNIX_ERROR_CODE_HPP
+#define UNIX_ERROR_CODE_HPP
 
 #include "errno.h"
 #include <expected>
 #include <string_view>
 
 
-namespace posix
+namespace unix
 {
     struct error_code {
         using value_type = decltype(EINVAL);
@@ -24,4 +24,4 @@ namespace posix
     }
 }
 
-#endif // POSIX_ERROR_CODE_HPP
+#endif // UNIX_ERROR_CODE_HPP

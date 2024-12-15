@@ -1,8 +1,8 @@
-#ifndef POSIX_IPC_PRIMITIVE_HPP
-#define POSIX_IPC_PRIMITIVE_HPP
+#ifndef UNIX_POSIX_IPC_PRIMITIVE_HPP
+#define UNIX_POSIX_IPC_PRIMITIVE_HPP
 
 
-namespace posix::ipc
+namespace unix::posix::ipc
 {
     class primitive
     {
@@ -17,4 +17,4 @@ namespace posix::ipc
     };
 }
 
-#endif // POSIX_IPC_PRIMITIVE_HPP
+#endif // UNIX_POSIX_IPC_PRIMITIVE_HPP

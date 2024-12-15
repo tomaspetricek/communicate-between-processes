@@ -1,15 +1,15 @@
-#ifndef POSIX_MUTEX_HPP
-#define POSIX_MUTEX_HPP
+#ifndef UNIX_POSIX_MUTEX_HPP
+#define UNIX_POSIX_MUTEX_HPP
 
 #include <cassert>
 #include <errno.h>
 #include <expected>
 #include <pthread.h>
 
-#include "posix/error_code.hpp"
-#include "posix/utility.hpp"
+#include "unix/error_code.hpp"
+#include "unix/utility.hpp"
 
-namespace posix
+namespace unix::posix
 {
     class mutex
     {
@@ -24,11 +24,11 @@ namespace posix
 
             // in pthread the return value is zero on success
             // on failure it is set directly to the error code, errno is not set
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<posix::mutex, error_code>{std::in_place, handle};
             }
-            assert(!operation_successful(ret));
+            assert(!unix::operation_successful(ret));
             return std::unexpected{error_code{ret}};;
         }
 
@@ -36,11 +36,11 @@ namespace posix
         {
             const auto ret = pthread_mutex_lock(&handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(!operation_successful(ret));
+            assert(!unix::operation_successful(ret));
             return std::unexpected{error_code{ret}};
         }
 
@@ -48,18 +48,18 @@ namespace posix
         {
             const auto ret = pthread_mutex_unlock(&handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(!operation_successful(ret));
+            assert(!unix::operation_successful(ret));
             return std::unexpected{error_code{ret}};
         }
 
         ~mutex() noexcept
         {
             const auto ret = pthread_mutex_destroy(&handle_);
-            assert(operation_successful(ret));
+            assert(unix::operation_successful(ret));
         }
 
     private:
@@ -67,4 +67,4 @@ namespace posix
     };
 } // namespace posix
 
-#endif // POSIX_MUTEX_HPP
+#endif // UNIX_POSIX_MUTEX_HPP

@@ -1,5 +1,5 @@
-#ifndef POSIX_IPC_MESSAGE_QUEUE_HPP
-#define POSIX_IPC_MESSAGE_QUEUE_HPP
+#ifndef UNIX_POSIX_IPC_MESSAGE_QUEUE_HPP
+#define UNIX_POSIX_IPC_MESSAGE_QUEUE_HPP
 
 #include <cassert>
 #include <expected>
@@ -7,13 +7,13 @@
 // #include <mqueue.h> // not available on OSX
 #include <string>
 
-#include "posix/error_code.hpp"
-#include "posix/utility.hpp"
-#include "posix/open_flags.hpp"
+#include "error_code.hpp"
+#include "utility.hpp"
+#include "unix/posix/open_flags.hpp"
 #include "posix/ipc/primitive.hpp"
 
 
-namespace posix::ipc
+namespace unix::posix::ipc
 {
     class message_queue : public ipc::primitive
     {
@@ -58,6 +58,6 @@ namespace posix::ipc
             return std::expected<void, error_code>{};
         }
     };
-} // namespace posix::ipc
+} // namespace unix::posix::ipc
 
-#endif // POSIX_IPC_MESSAGE_QUEUE_HPP
+#endif // UNIX_POSIX_IPC_MESSAGE_QUEUE_HPP

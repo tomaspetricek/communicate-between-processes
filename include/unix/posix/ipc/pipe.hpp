@@ -1,5 +1,5 @@
-#ifndef POSIX_IPC_PIPE_HPP
-#define POSIX_IPC_PIPE_HPP
+#ifndef UNIX_POSIX_IPC_PIPE_HPP
+#define UNIX_POSIX_IPC_PIPE_HPP
 
 #include <array>
 #include <cassert>
@@ -7,12 +7,12 @@
 #include <expected>
 #include <unistd.h>
 
-#include "posix/error_code.hpp"
-#include "posix/utility.hpp"
-#include "posix/ipc/primitive.hpp"
+#include "unix/error_code.hpp"
+#include "unix/posix/ipc/primitive.hpp"
+#include "unix/utility.hpp"
 
 
-namespace posix::ipc
+namespace unix::posix::ipc
 {
     class pipe : public ipc::primitive
     {
@@ -28,14 +28,13 @@ namespace posix::ipc
             assert(is_end_open(index));
             const auto ret = close(fds_[index]);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 end_open_ &= ~(1 << index); // set bit to 0
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
-            ;
         }
 
         bool is_end_open(std::size_t index) const
@@ -48,16 +47,16 @@ namespace posix::ipc
         // find a way to make it private
         explicit pipe(const file_descriptors_t &fds) noexcept : fds_{fds} {}
 
-        static std::expected<posix::ipc::pipe, error_code> create() noexcept
+        static std::expected<unix::posix::ipc::pipe, error_code> create() noexcept
         {
             file_descriptor_t fds[end_count];
             const auto ret = ::pipe(fds);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
-                return std::expected<posix::ipc::pipe, error_code>{std::in_place, std::to_array(fds)};
+                return std::expected<unix::posix::ipc::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -76,12 +75,12 @@ namespace posix::ipc
             assert(is_write_end_open());
             const auto ret = ::write(fds_[write_end_index], data, count);
 
-            if (!operation_failed(ret))
+            if (!unix::operation_failed(ret))
             {
                 assert(ret == count);
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected(error_code{errno});
         }
 
@@ -90,12 +89,12 @@ namespace posix::ipc
             assert(is_read_end_open());
             const auto ret = ::read(fds_[read_end_index], data, count);
 
-            if (!operation_failed(ret))
+            if (!unix::operation_failed(ret))
             {
                 assert(ret <= count);
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -125,6 +124,6 @@ namespace posix::ipc
         file_descriptors_t fds_;
         uint8_t end_open_{0b11111111};
     };
-} // namespace posix::ipc
+} // namespace unix::posix::ipc
 
-#endif // POSIX_IPC_PIPE_HPP
+#endif // UNIX_POSIX_IPC_PIPE_HPP

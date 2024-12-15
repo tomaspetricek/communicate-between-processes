@@ -3,14 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "posix/ipc/pipe.hpp"
-#include "posix/process.hpp"
+#include "unix/posix/ipc/pipe.hpp"
+#include "unix/posix/process.hpp"
 
 namespace
 {
     int send_message_between_processes() noexcept
     {
-        auto pipe_created = posix::ipc::pipe::create();
+        auto pipe_created = unix::posix::ipc::pipe::create();
 
         if (!pipe_created)
         {
@@ -20,15 +20,15 @@ namespace
         auto& pipe = pipe_created.value();
 
         // fork the process
-        const auto process_created = posix::create_process();
+        const auto process_created = unix::posix::create_process();
 
         if (!process_created)
         {
-            std::print("failed to create process due to: {}", posix::to_string(process_created.error()).data());
+            std::print("failed to create process due to: {}", unix::to_string(process_created.error()).data());
             return EXIT_FAILURE;
         }
         // child process
-        else if (posix::is_child_process(process_created.value()))
+        else if (unix::posix::is_child_process(process_created.value()))
         {
             // close unused write end
             assert(pipe.close_write_end());

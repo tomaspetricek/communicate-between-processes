@@ -1,5 +1,5 @@
-#ifndef POSIX_IPC_NAMED_SEMAPHORE_HPP
-#define POSIX_IPC_NAMED_SEMAPHORE_HPP
+#ifndef UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP
+#define UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP
 
 #include <errno.h>
 #include <semaphore.h>
@@ -9,13 +9,13 @@
 #include <new>
 #include <string_view>
 
-#include "posix/error_code.hpp"
-#include "posix/ipc/open_flags.hpp"
-#include "posix/ipc/utility.hpp"
-#include "posix/ipc/primitive.hpp"
+#include "unix/error_code.hpp"
+#include "unix/posix/ipc/open_flags.hpp"
+#include "unix/posix/ipc/utility.hpp"
+#include "unix/posix/ipc/primitive.hpp"
 
 
-namespace posix::ipc
+namespace unix::posix::ipc
 {
     class named_semaphore : ipc::primitive
     {
@@ -48,11 +48,11 @@ namespace posix::ipc
         {
             const auto ret = ::sem_post(handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -63,11 +63,11 @@ namespace posix::ipc
         {
             const auto ret = ::sem_wait(handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
             ;
         }
@@ -78,11 +78,11 @@ namespace posix::ipc
             int val;
             const auto ret = ::sem_getvalue(handle_, &val);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return val;
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -92,11 +92,11 @@ namespace posix::ipc
         {
             const auto ret = ::sem_unlink(name_.data());
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -112,14 +112,14 @@ namespace posix::ipc
         {
             const auto ret = ::sem_close(handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
     };
-} // namespace posix::ipc
+} // namespace unix::posix::ipc
 
-#endif // POSIX_IPC_NAMED_SEMAPHORE_HPP
+#endif // UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP

@@ -1,5 +1,5 @@
-#ifndef POSIX_IPC_UNNAMED_SEMAPHORE_HPP
-#define POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#ifndef UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#define UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP
 
 #include <cstdint>
 #include <errno.h>
@@ -7,12 +7,12 @@
 
 #include "semaphore.h"
 
-#include "posix/error_code.hpp"
-#include "posix/utility.hpp"
-#include "posix/ipc/primitive.hpp"
+#include "unix/error_code.hpp"
+#include "unix/posix/ipc/primitive.hpp"
+#include "unix/utility.hpp"
 
 
-namespace posix::ipc
+namespace unix::posix::ipc
 {
     enum class shared_between : std::uint8_t
     {
@@ -33,11 +33,11 @@ namespace posix::ipc
             handle_type handle;
             const auto ret = ::sem_init(&handle, static_cast<int>(shared), init_value);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<unnamed_semaphore, error_code>{std::in_place, handle};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -46,11 +46,11 @@ namespace posix::ipc
             // wait until the semaphore value > 0 and decrement it
             const auto ret = ::sem_wait(&handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -58,11 +58,11 @@ namespace posix::ipc
         {
             const auto ret = ::sem_post(&handle_);
 
-            if (operation_successful(ret))
+            if (unix::operation_successful(ret))
             {
                 return std::expected<void, error_code>{};
             }
-            assert(operation_failed(ret));
+            assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
 
@@ -71,7 +71,7 @@ namespace posix::ipc
             const auto ret = ::sem_destroy(&handle_);
             // EINVAL - invalid or not initialized
             // EBUSY -  still in use and cannot be destroyed
-            assert(operation_successful(ret));
+            assert(unix::operation_successful(ret));
         }
 
     private:
@@ -79,4 +79,4 @@ namespace posix::ipc
     };
 }
 
-#endif // POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#endif // UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP

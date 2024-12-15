@@ -6,11 +6,11 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-#include "posix/mutex.hpp"
-#include "posix/ipc/named_semaphore.hpp"
-#include "posix/ipc/unnamed_semaphore.hpp"
-#include "posix/permissions_builder.hpp"
-#include "posix/ipc/named_semaphore_open_flags_builder.hpp"
+#include "unix/posix/mutex.hpp"
+#include "unix/posix/ipc/named_semaphore.hpp"
+#include "unix/posix/ipc/unnamed_semaphore.hpp"
+#include "unix/posix/permissions_builder.hpp"
+#include "unix/posix/ipc/named_semaphore_open_flags_builder.hpp"
 
 namespace
 {
@@ -18,22 +18,22 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    constexpr auto perms = posix::permissions_builder{}
+    constexpr auto perms = unix::posix::permissions_builder{}
                                .owner_can_read()
                                .owner_can_write()
                                .group_can_read()
                                .others_can_read()
                                .get();
     static_assert(0644 == perms);
-    constexpr auto flags = posix::ipc::named_semaphore_open_flags_builder{}
+    constexpr auto flags = unix::posix::ipc::named_semaphore_open_flags_builder{}
                                .create_only()
                                .get();
     static_assert(flags == (O_CREAT | O_EXCL));
-    auto empty_slots_created = posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
-    auto filled_slots_created = posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
-    auto &empty_slots = empty_slots_created.value();                                                     // tracks available slots in the buffer
-    auto &filled_slots = filled_slots_created.value();                                                   // tracks the number of items in the buffer
-    auto buffer_mutex_created = posix::mutex::create();
+    auto empty_slots_created = unix::posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
+    auto filled_slots_created = unix::posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
+    auto &empty_slots = empty_slots_created.value();                                                           // tracks available slots in the buffer
+    auto &filled_slots = filled_slots_created.value();                                                         // tracks the number of items in the buffer
+    auto buffer_mutex_created = unix::posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 
     void *producer(void *arg)
@@ -113,11 +113,13 @@ int main(int, char **)
     empty_slots.unlink();
     filled_slots.unlink();
 
-    const auto created = posix::ipc::unnamed_semaphore::create(posix::ipc::shared_between::threads, 1);
-    assert(!created);
-    std::println("failed to create unnamed semaphore due to: {}", posix::to_string(created.error()).data());
+    using namespace unix::posix;
 
-    auto mutex_created = posix::mutex::create();
+    const auto created = ipc::unnamed_semaphore::create(ipc::shared_between::threads, 1);
+    assert(!created);
+    std::println("failed to create unnamed semaphore due to: {}", unix::to_string(created.error()).data());
+
+    auto mutex_created = mutex::create();
     assert(mutex_created.has_value());
     auto &mutex = mutex_created.value();
     assert(mutex.lock());

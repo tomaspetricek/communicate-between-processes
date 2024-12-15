@@ -1,14 +1,14 @@
-#ifndef POSIX_PROCESS_HPP
-#define POSIX_PROCESS_HPP
+#ifndef UNIX_POSIX_PROCESS_HPP
+#define UNIX_POSIX_PROCESS_HPP
 
 #include <unistd.h>
 #include <expected>
 #include <errno.h>
 
-#include "posix/error_code.hpp"
-#include "posix/utility.hpp"
+#include "unix/error_code.hpp"
+#include "unix/utility.hpp"
 
-namespace posix
+namespace unix::posix
 {
     using process_id_t = pid_t;
 
@@ -21,7 +21,7 @@ namespace posix
     {
         const process_id_t pid = fork();
 
-        if (!operation_failed(pid))
+        if (!unix::operation_failed(pid))
         {
             return pid;
         }
@@ -39,4 +39,4 @@ namespace posix
     }
 }
 
-#endif // POSIX_PROCESS_HPP
+#endif // UNIX_POSIX_PROCESS_HPP

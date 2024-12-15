@@ -1,11 +1,11 @@
-#ifndef SYSTEM_V_IPC_SHARED_MEMORY_HPP
-#define SYSTEM_V_IPC_SHARED_MEMORY_HPP
+#ifndef UNIX_SYSTEM_V_IPC_SHARED_MEMORY_HPP
+#define UNIX_SYSTEM_V_IPC_SHARED_MEMORY_HPP
 
 #include <cassert>
 #include <expected>
 #include <sys/shm.h>
 
-namespace system_v::ipc
+namespace unix::system_v::ipc
 {
     class shared_memory;
 }

@@ -2,8 +2,8 @@
 #include <print>
 #include <cstdlib>
 
-#include "posix/process.hpp"
-#include "posix/error_code.hpp"
+#include "unix/posix/process.hpp"
+#include "unix/error_code.hpp"
 
 
 int main(int, char **)
@@ -13,19 +13,19 @@ int main(int, char **)
 
     for (std::size_t index{0}; index < process_to_create_count; ++index)
     {
-        const auto process_created = posix::create_process();
+        const auto process_created = unix::posix::create_process();
 
         if (!process_created)
         {
-            std::print("failed to create process due to: {}", posix::to_string(process_created.error()).data());
+            std::print("failed to create process due to: {}", unix::to_string(process_created.error()).data());
             std::abort();
         }
         const auto process_id = process_created.value();
 
-        if (posix::is_child_process(process_id))
+        if (unix::posix::is_child_process(process_id))
         {
-            std::println("current process id: {}", posix::get_process_id());
-            std::println("current process parent id: {}", posix::get_parent_process_id());
+            std::println("current process id: {}", unix::posix::get_process_id());
+            std::println("current process parent id: {}", unix::posix::get_parent_process_id());
             return EXIT_SUCCESS;
         }
         else
