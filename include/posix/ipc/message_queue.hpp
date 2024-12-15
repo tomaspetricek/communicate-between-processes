@@ -10,10 +10,12 @@
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
 #include "posix/open_flags.hpp"
+#include "posix/ipc/primitive.hpp"
+
 
 namespace posix::ipc
 {
-    class message_queue
+    class message_queue : public ipc::primitive
     {
     public:
         explicit message_queue() noexcept = default;
@@ -25,12 +27,6 @@ namespace posix::ipc
             // mq_open(...)
             return std::expected<posix::message_queue, error_code>{std::in_place};
         }
-
-        message_queue(const message_queue &other) = delete;
-        message_queue &operator=(const message_queue &other) = delete;
-
-        message_queue(message_queue &&other) noexcept = delete;
-        message_queue &operator=(message_queue &&other) noexcept = delete;
 
         std::expected<void, error_code> close() noexcept
         {

@@ -12,10 +12,12 @@
 #include "posix/error_code.hpp"
 #include "posix/ipc/open_flags.hpp"
 #include "posix/ipc/utility.hpp"
+#include "posix/ipc/primitive.hpp"
+
 
 namespace posix::ipc
 {
-    class named_semaphore
+    class named_semaphore : ipc::primitive
     {
         using handle_type = sem_t;
 
@@ -39,12 +41,6 @@ namespace posix::ipc
             assert(handle == SEM_FAILED);
             return std::unexpected{error_code{errno}};
         }
-
-        named_semaphore(const named_semaphore &other) = delete;
-        named_semaphore &operator=(const named_semaphore &other) = delete;
-
-        named_semaphore(named_semaphore &&other) noexcept = delete;
-        named_semaphore &operator=(named_semaphore &&other) noexcept = delete;
 
         // increments the semaphore value,
         // signaling other processes waiting on the semaphore

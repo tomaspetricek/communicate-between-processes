@@ -8,11 +8,12 @@
 
 #include "posix/error_code.hpp"
 #include "posix/ipc/utility.hpp"
+#include "posix/ipc/primitive.hpp"
 
 
 namespace posix::ipc
 {
-    class shared_memory
+    class shared_memory : public ipc::primitive
     {
     public:
         static std::expected<shared_memory, error_code> create(std::string name) noexcept
@@ -23,12 +24,6 @@ namespace posix::ipc
         std::expected<void, error_code> unlink() noexcept {
             // shm_unlink
         }
-
-        shared_memory(const shared_memory &other) = delete;
-        shared_memory &operator=(const shared_memory &other) = delete;
-
-        shared_memory(shared_memory &&other) noexcept = delete;
-        shared_memory &operator=(shared_memory &&other) noexcept = delete;
     };
 }
 

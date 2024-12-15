@@ -9,10 +9,12 @@
 
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
+#include "posix/ipc/primitive.hpp"
+
 
 namespace posix::ipc
 {
-    class pipe
+    class pipe : public ipc::primitive
     {
         using file_descriptor_t = int;
         static constexpr std::size_t end_count = 2;
@@ -57,14 +59,7 @@ namespace posix::ipc
             }
             assert(operation_failed(ret));
             return std::unexpected{error_code{errno}};
-            ;
         }
-
-        pipe(const pipe &other) = delete;
-        pipe &operator=(const pipe &other) = delete;
-
-        pipe(pipe &&other) noexcept = delete;
-        pipe &operator=(pipe &&other) noexcept = delete;
 
         bool is_read_end_open() const
         {
@@ -102,7 +97,6 @@ namespace posix::ipc
             }
             assert(operation_failed(ret));
             return std::unexpected{error_code{errno}};
-            ;
         }
 
         std::expected<void, error_code> close_read_end() noexcept

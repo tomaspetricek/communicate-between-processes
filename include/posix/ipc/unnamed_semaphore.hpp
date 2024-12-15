@@ -9,6 +9,8 @@
 
 #include "posix/error_code.hpp"
 #include "posix/utility.hpp"
+#include "posix/ipc/primitive.hpp"
+
 
 namespace posix::ipc
 {
@@ -18,7 +20,7 @@ namespace posix::ipc
         processes,
     };
 
-    class unnamed_semaphore
+    class unnamed_semaphore : public ipc::primitive
     {
         using handle_type = sem_t;
 
@@ -38,12 +40,6 @@ namespace posix::ipc
             assert(operation_failed(ret));
             return std::unexpected{error_code{errno}};
         }
-
-        unnamed_semaphore(const unnamed_semaphore &other) = delete;
-        unnamed_semaphore &operator=(const unnamed_semaphore &other) = delete;
-
-        unnamed_semaphore(unnamed_semaphore &&other) noexcept = delete;
-        unnamed_semaphore &operator=(unnamed_semaphore &&other) noexcept = delete;
 
         std::expected<void, error_code> wait() noexcept
         {
