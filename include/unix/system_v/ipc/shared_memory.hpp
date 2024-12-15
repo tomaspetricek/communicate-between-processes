@@ -5,9 +5,12 @@
 #include <expected>
 #include <sys/shm.h>
 
+#include "unix/system_v/ipc/primitive.hpp"
+
 namespace unix::system_v::ipc
 {
-    class shared_memory;
+    class shared_memory : public ipc::primitive {
+    };
 }
 
-#endif // SYSTEM_IPC_V_SHARED_MEMORY_HPP
+#endif // UNIX_SYSTEM_IPC_V_SHARED_MEMORY_HPP

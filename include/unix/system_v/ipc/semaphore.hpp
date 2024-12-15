@@ -5,10 +5,13 @@
 #include <expected>
 #include <sys/sem.h>
 
+#include "unix/system_v/ipc/primitive.hpp"
 
 namespace unix::system_v::ipc
 {
-    class semaphore;
+    class semaphore : public ipc::primitive
+    {
+    };
 }
 
 #endif // UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
