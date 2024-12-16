@@ -1,6 +1,7 @@
 #include <cassert>
 #include <print>
 #include <array>
+#include <span>
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
@@ -41,5 +42,21 @@ int main(int, char **)
         return EXIT_FAILURE;
     }
     std::println("all semaphores from the set initialized");
+
+    std::array<unsigned short, sem_count> current_values;
+    const auto retrieved_semaphore_values = semaphores.get_values(current_values);
+
+    if (!retrieved_semaphore_values)
+    {
+        std::println("failed to retrive current semaphore values: {}", unix::to_string(retrieved_semaphore_values.error()).data());
+        return EXIT_FAILURE;
+    }
+    std::print("current semaphore values are: ");
+
+    for (const auto &curr_value : current_values)
+    {
+        std::print("{} ", curr_value);
+    }
+    std::println("");
     return EXIT_SUCCESS;
 }

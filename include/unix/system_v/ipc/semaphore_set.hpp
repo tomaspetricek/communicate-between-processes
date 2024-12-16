@@ -67,13 +67,13 @@ namespace unix::system_v::ipc
             return create(get_private_key(), semaphore_count, permissions);
         }
 
-        std::expected<void, error_code> set_value(int sem_index, int init_value)
+        std::expected<void, error_code> set_value(int sem_index, int init_value) noexcept
         {
             assert(sem_index >= int{0});
-            union semun sem_union;
-            sem_union.val = init_value;
+            union semun arg;
+            arg.val = init_value;
 
-            const auto ret = semctl(handle_, sem_index, SETVAL, sem_union);
+            const auto ret = semctl(handle_, sem_index, SETVAL, arg);
 
             if (!operation_failed(ret))
             {
@@ -85,11 +85,43 @@ namespace unix::system_v::ipc
         std::expected<void, error_code> set_values(const std::span<unsigned short> &init_values) noexcept
         {
             union semun arg;
+            // potential buffer overflow - check the buffer size <= semaphore count
             arg.array = init_values.data();
             const auto ret = semctl(handle_, 0, SETALL, arg);
 
             if (!operation_failed(ret))
             {
+                return std::expected<void, error_code>{};
+            }
+            return std::unexpected{error_code{errno}};
+        }
+
+        std::expected<void, error_code> get_value(int sem_index, int &current_value)
+        {
+            assert(sem_index >= int{0});
+            union semun arg;
+
+            const auto ret = semctl(handle_, sem_index, GETVAL, arg);
+
+            if (!operation_failed(ret))
+            {
+                current_value = arg.val;
+                return std::expected<void, error_code>{};
+            }
+            return std::unexpected{error_code{errno}};
+        }
+
+        std::expected<void, error_code> get_values(std::span<unsigned short> current_values)
+        {
+            union semun arg;
+            arg.array = current_values.data();
+
+            // potential buffer overflow - check the buffer size <= semaphore count
+            const auto ret = semctl(handle_, 0, GETALL, arg);
+
+            if (!operation_failed(ret))
+            {
+                // set directly into the buffer no need for making a copy
                 return std::expected<void, error_code>{};
             }
             return std::unexpected{error_code{errno}};
