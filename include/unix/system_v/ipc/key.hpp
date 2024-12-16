@@ -31,7 +31,7 @@ namespace unix::system_v::ipc
         return std::unexpected{error_code{errno}};
     }
 
-    key_t get_unique_key() noexcept
+    constexpr key_t get_private_key() noexcept
     {
         return IPC_PRIVATE;
     }
