@@ -1,5 +1,6 @@
 #include <cassert>
 #include <print>
+#include <array>
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
@@ -11,10 +12,7 @@ int main(int, char **)
 {
     using namespace unix::system_v;
 
-    constexpr std::size_t sem_count = 1;
-    const auto key = ipc::get_private_key();
-    constexpr auto open_flags =
-        ipc::open_flags_builder{}.create_exclusively().get();
+    constexpr std::size_t sem_count = 3;
     constexpr auto permissions = unix::permissions_builder{}
                                      .owner_can_read()
                                      .owner_can_write()
@@ -23,12 +21,25 @@ int main(int, char **)
                                      .others_can_read()
                                      .others_can_write()
                                      .get();
-    auto semaphores_created = ipc::semaphore_set::create(key, sem_count, open_flags | permissions);
+    auto semaphores_created = ipc::semaphore_set::create_private(sem_count, permissions);
 
     if (!semaphores_created)
     {
-        std::println("failed to create a semmaphore due to: {}",
+        std::println("failed to create a semmaphore set due to: {}",
                      unix::to_string(semaphores_created.error()).data());
+        return EXIT_FAILURE;
     }
-    std::println("semaphore created");
+    std::println("semaphore set created");
+    auto &semaphores = semaphores_created.value();
+
+    std::array<unsigned short, sem_count> init_values{{0, 1, 2}};
+    const auto all_initialized = semaphores.set_values(init_values);
+
+    if (!all_initialized)
+    {
+        std::println("failed to initialize semaphore set valued: {}", unix::to_string(all_initialized.error()).data());
+        return EXIT_FAILURE;
+    }
+    std::println("all semaphores from the set initialized");
+    return EXIT_SUCCESS;
 }
