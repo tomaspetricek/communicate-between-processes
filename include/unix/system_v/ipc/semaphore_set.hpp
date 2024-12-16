@@ -59,14 +59,14 @@ namespace unix::system_v::ipc
             {
                 return std::unexpected{error_code{errno}};
             }
-            const auto info_retrived = get_info(handle);
+            const auto info_retrieved = get_info(handle);
 
-            if (!info_retrived) [[unlikely]]
+            if (!info_retrieved) [[unlikely]]
             {
-                return std::unexpected{info_retrived.error()};
+                return std::unexpected{info_retrieved.error()};
             }
             std::println("created");
-            const auto count = info_retrived.value().sem_nsems;
+            const auto count = info_retrieved.value().sem_nsems;
             assert(count > 0);
             return std::expected<semaphore_set, error_code>{std::in_place, handle, count};
         }
