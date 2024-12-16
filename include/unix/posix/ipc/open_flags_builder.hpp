@@ -28,7 +28,7 @@ namespace unix::posix::ipc
             return *static_cast<concrete_builder_type*>(this);
         }
 
-        constexpr concrete_builder_type &create_only() noexcept
+        constexpr concrete_builder_type &create_exclusively() noexcept
         {
             flags_ |= O_CREAT | O_EXCL;
             return *static_cast<concrete_builder_type*>(this);

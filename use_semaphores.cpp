@@ -26,7 +26,7 @@ namespace
                                .get();
     static_assert(0644 == perms);
     constexpr auto flags = unix::posix::ipc::named_semaphore_open_flags_builder{}
-                               .create_only()
+                               .create_exclusively()
                                .get();
     static_assert(flags == (O_CREAT | O_EXCL));
     auto empty_slots_created = unix::posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
