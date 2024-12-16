@@ -1,6 +1,7 @@
 #ifndef UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
 #define UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
 
+#include <array>
 #include <cassert>
 #include <expected>
 #include <sys/sem.h>
@@ -11,21 +12,21 @@
 
 namespace unix::system_v::ipc
 {
-    class semaphore : public ipc::primitive
+    class semaphore_set : public ipc::primitive
     {
         using handle_type = int;
 
     public:
-        explicit semaphore(handle_type handle) noexcept
+        explicit semaphore_set(handle_type handle) noexcept
             : handle_{handle} {}
 
-        static std::expected<semaphore, error_code> create(ipc::key_t key, int count, int flags) noexcept
+        static std::expected<semaphore_set, error_code> create(ipc::key_t key, int semaphore_count, int flags) noexcept
         {
-            const handle_type handle = semget(key, count, flags);
+            const handle_type handle = semget(key, semaphore_count, flags);
 
             if (!operation_failed(handle))
             {
-                return std::expected<semaphore, error_code>{
+                return std::expected<semaphore_set, error_code>{
                     std::in_place, handle};
             }
             return std::unexpected{error_code{errno}};
