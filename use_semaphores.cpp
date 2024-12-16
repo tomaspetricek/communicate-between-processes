@@ -9,7 +9,7 @@
 #include "unix/posix/mutex.hpp"
 #include "unix/posix/ipc/named_semaphore.hpp"
 #include "unix/posix/ipc/unnamed_semaphore.hpp"
-#include "unix/posix/permissions_builder.hpp"
+#include "unix/permissions_builder.hpp"
 #include "unix/posix/ipc/named_semaphore_open_flags_builder.hpp"
 
 namespace
@@ -18,7 +18,7 @@ namespace
     std::vector<int> buffer;
 
     // semaphores
-    constexpr auto perms = unix::posix::permissions_builder{}
+    constexpr auto perms = unix::permissions_builder{}
                                .owner_can_read()
                                .owner_can_write()
                                .group_can_read()

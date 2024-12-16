@@ -1,10 +1,10 @@
 #include <cassert>
 
-#include "unix/posix/permissions_builder.hpp"
+#include "unix/permissions_builder.hpp"
 
 int main(int, char **)
 {
-    constexpr auto perms = unix::posix::permissions_builder{}
+    constexpr auto perms = unix::permissions_builder{}
                                .owner_can_read()
                                .owner_can_write()
                                .owner_can_execute()
