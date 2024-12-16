@@ -60,5 +60,22 @@ int main(int, char **)
         std::print("{} ", curr_value);
     }
     std::println("");
+
+    struct sembuf sem_ops[2];
+    sem_ops[0].sem_num = 0;
+    sem_ops[0].sem_op = 2;
+    sem_ops[0].sem_flg = 0;
+
+    sem_ops[1].sem_num = 1;
+    sem_ops[1].sem_op = 3;
+    sem_ops[1].sem_flg = 0;
+
+    const auto values_changed = semaphores.change_values(std::span<sembuf>{sem_ops, 2});
+
+    if (!values_changed)
+    {
+        std::println("failed to semaphore set values due to: {}", unix::to_string(values_changed.error()).data());
+    }
+    std::println("semaphore values changed");
     return EXIT_SUCCESS;
 }

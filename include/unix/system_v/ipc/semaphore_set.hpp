@@ -168,6 +168,19 @@ namespace unix::system_v::ipc
             return count_;
         }
 
+        std::expected<void, error_code> change_values(const std::span<sembuf> &ops) noexcept
+        {
+            assert(ops.size() > 0);
+
+            const auto ret = ::semop(handle_, ops.data(), ops.size());
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+
     private:
         handle_type handle_;
         int count_;
