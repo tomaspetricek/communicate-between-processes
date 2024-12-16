@@ -33,6 +33,8 @@ int main(int, char **)
     std::println("semaphore set created");
     auto &semaphores = semaphores_created.value();
 
+    assert(semaphores.count() == sem_count);
+
     std::array<unsigned short, sem_count> init_values{{0, 1, 2}};
     const auto all_initialized = semaphores.set_values(init_values);
 

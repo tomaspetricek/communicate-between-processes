@@ -12,6 +12,8 @@
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
+#include <print>
+
 namespace unix::system_v::ipc
 {
     class semaphore_set : public ipc::primitive
@@ -25,20 +27,48 @@ namespace unix::system_v::ipc
             unsigned short *array;
         };
 
+        static std::expected<semid_ds, error_code> get_info(handle_type handle) noexcept
+        {
+            struct semid_ds info;
+            union semun arg;
+            arg.buf = &info;
+
+            const auto ret = semctl(handle, 0, IPC_STAT, arg);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<semid_ds, error_code>{info};
+        }
+
     public:
-        explicit semaphore_set(handle_type handle) noexcept
-            : handle_{handle} {}
+        explicit semaphore_set(handle_type handle, int count) noexcept
+            : handle_{handle}, count_{count} {}
+
+        std::expected<semid_ds, error_code> get_info() const noexcept
+        {
+            return semaphore_set::get_info(handle_);
+        }
 
         static std::expected<semaphore_set, error_code> create(ipc::key_t key, int semaphore_count, int flags) noexcept
         {
             const handle_type handle = semget(key, semaphore_count, flags);
 
-            if (!operation_failed(handle))
+            if (operation_failed(handle))
             {
-                return std::expected<semaphore_set, error_code>{
-                    std::in_place, handle};
+                return std::unexpected{error_code{errno}};
             }
-            return std::unexpected{error_code{errno}};
+            const auto info_retrived = get_info(handle);
+
+            if (!info_retrived) [[unlikely]]
+            {
+                return std::unexpected{info_retrived.error()};
+            }
+            std::println("created");
+            const auto count = info_retrived.value().sem_nsems;
+            assert(count > 0);
+            return std::expected<semaphore_set, error_code>{std::in_place, handle, count};
         }
 
         static std::expected<semaphore_set, error_code> open_existing(ipc::key_t key) noexcept
@@ -84,8 +114,12 @@ namespace unix::system_v::ipc
 
         std::expected<void, error_code> set_values(const std::span<unsigned short> &init_values) noexcept
         {
+            // otherwise overflow
+            if (init_values.size() < count_)
+            {
+                return std::unexpected{error_code{EINVAL}};
+            }
             union semun arg;
-            // potential buffer overflow - check the buffer size <= semaphore count
             arg.array = init_values.data();
             const auto ret = semctl(handle_, 0, SETALL, arg);
 
@@ -100,7 +134,6 @@ namespace unix::system_v::ipc
         {
             assert(sem_index >= int{0});
             union semun arg;
-
             const auto ret = semctl(handle_, sem_index, GETVAL, arg);
 
             if (!operation_failed(ret))
@@ -113,10 +146,13 @@ namespace unix::system_v::ipc
 
         std::expected<void, error_code> get_values(std::span<unsigned short> current_values)
         {
+            // otherwise overflow
+            if (current_values.size() < count_)
+            {
+                return std::unexpected{error_code{EINVAL}};
+            }
             union semun arg;
             arg.array = current_values.data();
-
-            // potential buffer overflow - check the buffer size <= semaphore count
             const auto ret = semctl(handle_, 0, GETALL, arg);
 
             if (!operation_failed(ret))
@@ -127,8 +163,14 @@ namespace unix::system_v::ipc
             return std::unexpected{error_code{errno}};
         }
 
+        int count() const noexcept
+        {
+            return count_;
+        }
+
     private:
         handle_type handle_;
+        int count_;
     };
 }
 
