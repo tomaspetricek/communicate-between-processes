@@ -181,6 +181,21 @@ namespace unix::system_v::ipc
             return std::expected<void, error_code>{};
         }
 
+#ifndef __APPLE__
+        std::expected<void, error_code> change_values(const std::span<sembuf> &ops, const timespec &timeout) noexcept
+        {
+            assert(ops.size() > 0);
+
+            const auto ret = ::semtimedop(handle_, ops.data(), ops.size(), timeout);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+#endif
+
     private:
         handle_type handle_;
         int count_;
