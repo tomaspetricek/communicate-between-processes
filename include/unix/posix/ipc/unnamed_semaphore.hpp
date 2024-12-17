@@ -66,12 +66,15 @@ namespace unix::posix::ipc
             return std::unexpected{error_code{errno}};
         }
 
-        ~unnamed_semaphore() noexcept
-        {
+        std::expected<void, error_code> destroy() noexcept {
             const auto ret = ::sem_destroy(&handle_);
-            // EINVAL - invalid or not initialized
-            // EBUSY -  still in use and cannot be destroyed
-            assert(unix::operation_successful(ret));
+
+            if (unix::operation_successful(ret))
+            {
+                return std::expected<void, error_code>{};
+            }
+            assert(unix::operation_failed(ret));
+            return std::unexpected{error_code{errno}};
         }
 
     private:
