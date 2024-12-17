@@ -16,6 +16,9 @@
 
 namespace unix::system_v::ipc
 {
+    using semaphore_value_t = int;
+    using semaphore_index_t = semaphore_value_t;
+
     class semaphore_set : public ipc::primitive
     {
         using handle_type = int;
@@ -97,7 +100,7 @@ namespace unix::system_v::ipc
             return create(get_private_key(), semaphore_count, permissions);
         }
 
-        std::expected<void, error_code> set_value(int sem_index, int init_value) noexcept
+        std::expected<void, error_code> set_value(semaphore_index_t sem_index, semaphore_value_t init_value) noexcept
         {
             assert(sem_index >= int{0});
             union semun arg;
@@ -130,7 +133,7 @@ namespace unix::system_v::ipc
             return std::unexpected{error_code{errno}};
         }
 
-        std::expected<void, error_code> get_value(int sem_index, int &current_value)
+        std::expected<void, error_code> get_value(semaphore_index_t sem_index, semaphore_value_t &current_value)
         {
             assert(sem_index >= int{0});
             union semun arg;
@@ -196,7 +199,7 @@ namespace unix::system_v::ipc
         }
 #endif
 
-        std::expected<void, error_code> change_value(int sem_index, int change) noexcept
+        std::expected<void, error_code> change_value(semaphore_index_t sem_index, semaphore_value_t change) noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             sembuf args;
@@ -213,14 +216,14 @@ namespace unix::system_v::ipc
             return std::expected<void, error_code>{};
         }
 
-        std::expected<void, error_code> increase_value(int sem_index, int increment) noexcept
+        std::expected<void, error_code> increase_value(semaphore_index_t sem_index, semaphore_value_t increment) noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             assert(increment > 0);
             return change_value(sem_index, increment);
         }
 
-        std::expected<void, error_code> decrease_value(int sem_index, int decrement) noexcept
+        std::expected<void, error_code> decrease_value(semaphore_index_t sem_index, semaphore_value_t decrement) noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             assert(decrement < 0);
