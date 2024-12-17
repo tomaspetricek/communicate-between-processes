@@ -29,10 +29,10 @@ namespace
                                .create_exclusively()
                                .get();
     static_assert(flags == (O_CREAT | O_EXCL));
-    auto empty_slots_created = unix::posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
-    auto filled_slots_created = unix::posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
-    auto &empty_slots = empty_slots_created.value();                                                           // tracks available slots in the buffer
-    auto &filled_slots = filled_slots_created.value();                                                         // tracks the number of items in the buffer
+    const auto empty_slots_created = unix::posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
+    const auto filled_slots_created = unix::posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
+    const auto &empty_slots = empty_slots_created.value();                                                           // tracks available slots in the buffer
+    const auto &filled_slots = filled_slots_created.value();                                                         // tracks the number of items in the buffer
     auto buffer_mutex_created = unix::posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 

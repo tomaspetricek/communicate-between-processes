@@ -44,7 +44,7 @@ namespace unix::posix::ipc
 
         // increments the semaphore value,
         // signaling other processes waiting on the semaphore
-        std::expected<void, error_code> post() noexcept
+        std::expected<void, error_code> post() const noexcept
         {
             const auto ret = ::sem_post(handle_);
 
@@ -59,7 +59,7 @@ namespace unix::posix::ipc
         // decrements the semaphore value
         // if the value is 0, the calling process blocks until it can decrement the
         // semaphore
-        std::expected<void, error_code> wait() noexcept
+        std::expected<void, error_code> wait() const noexcept
         {
             const auto ret = ::sem_wait(handle_);
 
@@ -73,7 +73,7 @@ namespace unix::posix::ipc
         }
 
         // retrieves the current value of the semaphore
-        std::expected<int, error_code> get_value() noexcept
+        std::expected<int, error_code> get_value() const noexcept
         {
             int val;
             const auto ret = ::sem_getvalue(handle_, &val);
@@ -88,7 +88,7 @@ namespace unix::posix::ipc
 
         // removes the named semaphore from the system
         // only affects the name, not active processes using the semaphore
-        std::expected<void, error_code> unlink() noexcept
+        std::expected<void, error_code> unlink() const noexcept
         {
             const auto ret = ::sem_unlink(name_.data());
 
@@ -108,7 +108,7 @@ namespace unix::posix::ipc
 
         // closes a named semaphore,
         // detaches the semaphore from the process but doesn't remove it
-        std::expected<void, error_code> close() noexcept
+        std::expected<void, error_code> close() const noexcept
         {
             const auto ret = ::sem_close(handle_);
 
