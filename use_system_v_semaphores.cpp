@@ -6,7 +6,6 @@
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/system_v/ipc/key.hpp"
-#include "unix/system_v/ipc/open_flags_builder.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
 
 int main(int, char **)
