@@ -14,9 +14,10 @@
 #include "unix/posix/ipc/utility.hpp"
 #include "unix/posix/ipc/primitive.hpp"
 
-
 namespace unix::posix::ipc
 {
+    using named_semaphore_value_t = unsigned int;
+
     class named_semaphore : ipc::primitive
     {
         using handle_type = sem_t;
@@ -26,8 +27,8 @@ namespace unix::posix::ipc
             : handle_{handle}, name_{std::move(name)} {}
 
         static std::expected<named_semaphore, error_code>
-        create(std::string name, const open_flags_t &flags, mode_t mode,
-               unsigned int init_value) noexcept
+        create(std::string &&name, const open_flags_t &flags, mode_t mode,
+               named_semaphore_value_t init_value) noexcept
         {
             assert(is_valid_pathname(name));
             handle_type *handle =
@@ -40,6 +41,25 @@ namespace unix::posix::ipc
             }
             assert(handle == SEM_FAILED);
             return std::unexpected{error_code{errno}};
+        }
+
+        static std::expected<named_semaphore, error_code> open_existing(std::string &&name) noexcept
+        {
+            return create(std::move(name), open_flags_t{0}, mode_t{0}, named_semaphore_value_t{0});
+        }
+
+        static std::expected<named_semaphore, error_code> create_if_absent(std::string &&name, mode_t mode,
+                                                                           named_semaphore_value_t init_value) noexcept
+        {
+            const open_flags_t flags{no_open_flags | O_CREAT};
+            return create(std::move(name), flags, mode, init_value);
+        }
+
+        static std::expected<named_semaphore, error_code> create_exclusively(std::string &&name, mode_t mode,
+                                                                             named_semaphore_value_t init_value) noexcept
+        {
+            const open_flags_t flags{no_open_flags | O_CREAT | O_EXCL};
+            return create(std::move(name), flags, mode, init_value);
         }
 
         // increments the semaphore value,

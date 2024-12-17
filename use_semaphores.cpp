@@ -25,12 +25,8 @@ namespace
                                .others_can_read()
                                .get();
     static_assert(0644 == perms);
-    constexpr auto flags = unix::posix::ipc::named_semaphore_open_flags_builder{}
-                               .create_exclusively()
-                               .get();
-    static_assert(flags == (O_CREAT | O_EXCL));
-    const auto empty_slots_created = unix::posix::ipc::named_semaphore::create("/empty", flags, perms, buffer_size); // all slots available in the beginning
-    const auto filled_slots_created = unix::posix::ipc::named_semaphore::create("/filled", flags, perms, 0);         // no slots are filled in the beginning
+    const auto empty_slots_created = unix::posix::ipc::named_semaphore::create_exclusively("/empty", perms, buffer_size); // all slots available in the beginning
+    const auto filled_slots_created = unix::posix::ipc::named_semaphore::create_exclusively("/filled", perms, 0);         // no slots are filled in the beginning
     const auto &empty_slots = empty_slots_created.value();                                                           // tracks available slots in the buffer
     const auto &filled_slots = filled_slots_created.value();                                                         // tracks the number of items in the buffer
     auto buffer_mutex_created = unix::posix::mutex::create();
