@@ -230,6 +230,17 @@ namespace unix::system_v::ipc
             return change_value(sem_index, decrement);
         }
 
+        std::expected<void, error_code> remove() noexcept
+        {
+            const auto ret = semctl(handle_, 0, IPC_RMID);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+
     private:
         handle_type handle_;
         int count_;

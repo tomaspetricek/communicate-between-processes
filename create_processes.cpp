@@ -72,5 +72,14 @@ int main(int, char **)
     std::println("wait for all children to finish processing...");
     assert(semaphore.decrease_value(sem_index, -child_processes_count));
     std::println("all done");
+
+    const auto semaphore_removed = semaphore.remove();
+
+    if (!semaphore_removed)
+    {
+        std::println("failed to remove semaphore due to: {}", unix::to_string(semaphore_removed.error()).data());
+        return EXIT_FAILURE;
+    }
+    std::println("semaphore successfully removed");
     return EXIT_SUCCESS;
 }
