@@ -196,6 +196,37 @@ namespace unix::system_v::ipc
         }
 #endif
 
+        std::expected<void, error_code> change_value(int sem_index, int change) noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            sembuf args;
+            args.sem_num = sem_index;
+            args.sem_op = change;
+            args.sem_flg = 0;
+
+            const auto ret = semop(handle_, &args, 1);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+
+        std::expected<void, error_code> increase_value(int sem_index, int increment) noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            assert(increment > 0);
+            return change_value(sem_index, increment);
+        }
+
+        std::expected<void, error_code> decrease_value(int sem_index, int decrement) noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            assert(decrement < 0);
+            return change_value(sem_index, decrement);
+        }
+
     private:
         handle_type handle_;
         int count_;
