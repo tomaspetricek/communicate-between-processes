@@ -100,7 +100,7 @@ namespace unix::system_v::ipc
             return create(get_private_key(), semaphore_count, permissions);
         }
 
-        std::expected<void, error_code> set_value(semaphore_index_t sem_index, semaphore_value_t init_value) noexcept
+        std::expected<void, error_code> set_value(semaphore_index_t sem_index, semaphore_value_t init_value) const noexcept
         {
             assert(sem_index >= int{0});
             union semun arg;
@@ -115,7 +115,7 @@ namespace unix::system_v::ipc
             return std::unexpected{error_code{errno}};
         }
 
-        std::expected<void, error_code> set_values(const std::span<unsigned short> &init_values) noexcept
+        std::expected<void, error_code> set_values(const std::span<unsigned short> &init_values) const noexcept
         {
             // otherwise overflow
             if (init_values.size() < count_)
@@ -133,7 +133,7 @@ namespace unix::system_v::ipc
             return std::unexpected{error_code{errno}};
         }
 
-        std::expected<void, error_code> get_value(semaphore_index_t sem_index, semaphore_value_t &current_value)
+        std::expected<void, error_code> get_value(semaphore_index_t sem_index, semaphore_value_t &current_value) const noexcept
         {
             assert(sem_index >= int{0});
             union semun arg;
@@ -147,7 +147,7 @@ namespace unix::system_v::ipc
             return std::unexpected{error_code{errno}};
         }
 
-        std::expected<void, error_code> get_values(std::span<unsigned short> current_values)
+        std::expected<void, error_code> get_values(std::span<unsigned short> current_values) const noexcept
         {
             // otherwise overflow
             if (current_values.size() < count_)
@@ -171,7 +171,7 @@ namespace unix::system_v::ipc
             return count_;
         }
 
-        std::expected<void, error_code> change_values(const std::span<sembuf> &ops) noexcept
+        std::expected<void, error_code> change_values(const std::span<sembuf> &ops) const noexcept
         {
             assert(ops.size() > 0);
 
@@ -185,7 +185,7 @@ namespace unix::system_v::ipc
         }
 
 #ifndef __APPLE__
-        std::expected<void, error_code> change_values(const std::span<sembuf> &ops, const timespec &timeout) noexcept
+        std::expected<void, error_code> change_values(const std::span<sembuf> &ops, const timespec &timeout) const noexcept
         {
             assert(ops.size() > 0);
 
@@ -199,7 +199,7 @@ namespace unix::system_v::ipc
         }
 #endif
 
-        std::expected<void, error_code> change_value(semaphore_index_t sem_index, semaphore_value_t change) noexcept
+        std::expected<void, error_code> change_value(semaphore_index_t sem_index, semaphore_value_t change) const noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             sembuf args;
@@ -216,21 +216,21 @@ namespace unix::system_v::ipc
             return std::expected<void, error_code>{};
         }
 
-        std::expected<void, error_code> increase_value(semaphore_index_t sem_index, semaphore_value_t increment) noexcept
+        std::expected<void, error_code> increase_value(semaphore_index_t sem_index, semaphore_value_t increment) const noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             assert(increment > 0);
             return change_value(sem_index, increment);
         }
 
-        std::expected<void, error_code> decrease_value(semaphore_index_t sem_index, semaphore_value_t decrement) noexcept
+        std::expected<void, error_code> decrease_value(semaphore_index_t sem_index, semaphore_value_t decrement) const noexcept
         {
             assert(sem_index >= 0 && sem_index < count_);
             assert(decrement < 0);
             return change_value(sem_index, decrement);
         }
 
-        std::expected<void, error_code> remove() noexcept
+        std::expected<void, error_code> remove() const noexcept
         {
             const auto ret = semctl(handle_, 0, IPC_RMID);
 

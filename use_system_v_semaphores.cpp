@@ -22,7 +22,7 @@ int main(int, char **)
                                      .others_can_read()
                                      .others_can_write()
                                      .get();
-    auto semaphores_created = ipc::semaphore_set::create_private(sem_count, permissions);
+    const auto semaphores_created = ipc::semaphore_set::create_private(sem_count, permissions);
 
     if (!semaphores_created)
     {

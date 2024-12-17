@@ -26,7 +26,7 @@ int main(int, char **)
                                      .others_can_read()
                                      .others_can_write()
                                      .get();
-    auto semaphore_created = system_v::ipc::semaphore_set::create_private(sem_count, permissions);
+    const auto semaphore_created = system_v::ipc::semaphore_set::create_private(sem_count, permissions);
 
     if (!semaphore_created)
     {
