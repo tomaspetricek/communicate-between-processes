@@ -2,7 +2,6 @@
 #include <print>
 #include <cstdlib>
 #include <unistd.h>
-#include <sys/wait.h>
 #include <signal.h>
 
 #include "unix/error_code.hpp"
@@ -81,8 +80,24 @@ int main(int, char **)
     unix::posix::process_id_t child_id;
     int status;
 
-    while (!unix::operation_failed(child_id = wait(&status)))
+    while (true)
     {
+        const auto child_terminated = unix::posix::wait_till_child_terminates(&status);
+
+        if (!child_terminated)
+        {
+            const auto error = child_terminated.error();
+
+            if (error.code != ECHILD)
+            {
+                std::println("failed waiting for a child: {}", unix::to_string(error).data());
+                return EXIT_FAILURE;
+            }
+            std::println("all children terminated");
+            break;
+        }
+        const auto child_id = child_terminated.value();
+
         std::println("child with process id: {} terminated", child_id);
 
         if (WIFEXITED(status))
@@ -94,7 +109,6 @@ int main(int, char **)
             psignal(WTERMSIG(stat), "child exit signal");
         }
     }
-
     std::println("all done");
 
     const auto semaphore_removed = semaphore.remove();

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <expected>
 #include <errno.h>
+#include <sys/wait.h>
 
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
@@ -36,6 +37,17 @@ namespace unix::posix
     process_id_t get_parent_process_id() noexcept
     {
         return getppid();
+    }
+
+    std::expected<process_id_t, error_code> wait_till_child_terminates(int* status) noexcept
+    {
+        const auto child_id = wait(status);
+
+        if (unix::operation_failed(child_id))
+        {
+            return std::unexpected{error_code{errno}};
+        }
+        return std::expected<process_id_t, error_code>{child_id};
     }
 }
 
