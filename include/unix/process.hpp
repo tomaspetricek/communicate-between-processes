@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_PROCESS_HPP
-#define UNIX_POSIX_PROCESS_HPP
+#ifndef UNIX_PROCESS_HPP
+#define UNIX_PROCESS_HPP
 
 #include <unistd.h>
 #include <expected>
@@ -9,7 +9,7 @@
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
 
-namespace unix::posix
+namespace unix
 {
     using process_id_t = pid_t;
 
@@ -51,4 +51,4 @@ namespace unix::posix
     }
 }
 
-#endif // UNIX_POSIX_PROCESS_HPP
+#endif // UNIX_PROCESS_HPP

@@ -6,9 +6,10 @@
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
-#include "unix/posix/process.hpp"
+#include "unix/process.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/utility.hpp"
+#include "unix/signal.hpp"
 
 int main(int, char **)
 {
@@ -16,7 +17,7 @@ int main(int, char **)
 
     constexpr std::size_t process_to_create_count = 10;
     std::size_t child_processes_count{0};
-    constexpr int child_sleep_duration{5};
+    constexpr int child_sleep_duration{10};
 
     constexpr std::size_t sem_count = 1;
     constexpr int sem_index = 0;
@@ -38,10 +39,11 @@ int main(int, char **)
     }
     auto &semaphore = semaphore_created.value();
     semaphore.set_value(int{0}, int{0});
+    process_id_t last_created_process_id;
 
     for (std::size_t index{0}; index < process_to_create_count; ++index)
     {
-        const auto process_created = unix::posix::create_process();
+        const auto process_created = unix::create_process();
 
         if (!process_created)
         {
@@ -50,10 +52,10 @@ int main(int, char **)
         }
         const auto process_id = process_created.value();
 
-        if (unix::posix::is_child_process(process_id))
+        if (unix::is_child_process(process_id))
         {
-            std::println("current process id: {}", unix::posix::get_process_id());
-            std::println("current process parent id: {}", unix::posix::get_parent_process_id());
+            std::println("current process id: {}", unix::get_process_id());
+            std::println("current process parent id: {}", unix::get_parent_process_id());
 
             std::println("ready for processing");
             assert(semaphore.increase_value(sem_index, 1));
@@ -67,6 +69,7 @@ int main(int, char **)
             std::println("child process with id: {} created", process_id);
             std::println("index: {}", index);
             child_processes_count++;
+            last_created_process_id = process_id;
         }
     }
     std::println("child processes count: {}", child_processes_count);
@@ -75,14 +78,17 @@ int main(int, char **)
     std::println("wait for all chidlren to get ready for processing...");
     assert(semaphore.decrease_value(sem_index, -child_processes_count));
 
+    std::println("requesting termination of the last created child process");
+    unix::request_process_termination(last_created_process_id);
+
     std::println("wait for all children to finish processing...");
     bool all_finished{false};
-    unix::posix::process_id_t child_id;
+    unix::process_id_t child_id;
     int status;
 
     while (true)
     {
-        const auto child_terminated = unix::posix::wait_till_child_terminates(&status);
+        const auto child_terminated = unix::wait_till_child_terminates(&status);
 
         if (!child_terminated)
         {
@@ -106,7 +112,7 @@ int main(int, char **)
         }
         else if (WIFSIGNALED(status))
         {
-            psignal(WTERMSIG(stat), "child exit signal");
+            psignal(WTERMSIG(status), "child exit signal");
         }
     }
     std::println("all done");

@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "unix/posix/ipc/pipe.hpp"
-#include "unix/posix/process.hpp"
+#include "unix/process.hpp"
 
 namespace
 {
@@ -20,7 +20,7 @@ namespace
         auto& pipe = pipe_created.value();
 
         // fork the process
-        const auto process_created = unix::posix::create_process();
+        const auto process_created = unix::create_process();
 
         if (!process_created)
         {
@@ -28,7 +28,7 @@ namespace
             return EXIT_FAILURE;
         }
         // child process
-        else if (unix::posix::is_child_process(process_created.value()))
+        else if (unix::is_child_process(process_created.value()))
         {
             // close unused write end
             assert(pipe.close_write_end());
