@@ -2,11 +2,14 @@
 #include <print>
 #include <cstdlib>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/posix/process.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
+#include "unix/utility.hpp"
 
 int main(int, char **)
 {
@@ -53,10 +56,11 @@ int main(int, char **)
             std::println("current process id: {}", unix::posix::get_process_id());
             std::println("current process parent id: {}", unix::posix::get_parent_process_id());
 
-            std::println("processing...");
-            sleep(child_sleep_duration);
-
+            std::println("ready for processing");
             assert(semaphore.increase_value(sem_index, 1));
+
+            std::println("started processing...");
+            sleep(child_sleep_duration);
             return EXIT_SUCCESS;
         }
         else
@@ -69,8 +73,28 @@ int main(int, char **)
     std::println("child processes count: {}", child_processes_count);
     assert(child_processes_count == process_to_create_count);
 
-    std::println("wait for all children to finish processing...");
+    std::println("wait for all chidlren to get ready for processing...");
     assert(semaphore.decrease_value(sem_index, -child_processes_count));
+
+    std::println("wait for all children to finish processing...");
+    bool all_finished{false};
+    unix::posix::process_id_t child_id;
+    int status;
+
+    while (!unix::operation_failed(child_id = wait(&status)))
+    {
+        std::println("child with process id: {} terminated", child_id);
+
+        if (WIFEXITED(status))
+        {
+            std::println("child exit status: {}", WEXITSTATUS(status));
+        }
+        else if (WIFSIGNALED(status))
+        {
+            psignal(WTERMSIG(stat), "child exit signal");
+        }
+    }
+
     std::println("all done");
 
     const auto semaphore_removed = semaphore.remove();
