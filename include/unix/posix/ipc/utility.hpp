@@ -6,7 +6,7 @@
 #include <string_view>
 
 
-namespace unix::posix
+namespace unix::posix::ipc
 {
     bool is_valid_pathname(const std::string_view &name) noexcept
     {
