@@ -24,8 +24,23 @@ int main(int, char **)
     if (!directory_created)
     {
         std::println("failed to create a directory: {}", unix::to_string(directory_created.error()).data());
+    }
+    else
+    {
+        std::println("directory created");
+    }
+    const auto file_info_retrieved = unix::posix::fs::get_file_info(dir_path);
+
+    if (!file_info_retrieved)
+    {
+        std::println("failed to retrieve directory info: {}", unix::to_string(file_info_retrieved.error()).data());
         return EXIT_FAILURE;
     }
-    std::println("directory created");
+    std::println("directory info retrieved");
+    const auto &info = file_info_retrieved.value();
+    assert(info.is_directory());
+    std::println("size (bytes): {}", info.size());
+    std::println("last modified: {}", info.last_modified());
+    std::println("last accessed: {}", info.last_accessed());
     return EXIT_SUCCESS;
 }
