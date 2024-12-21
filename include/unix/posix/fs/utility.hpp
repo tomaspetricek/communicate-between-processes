@@ -127,6 +127,13 @@ namespace unix::posix::fs
         {
             return S_ISSOCK(stat_.st_mode);
         }
+
+#ifdef __APPLE__
+        struct timespec created() const noexcept
+        {
+            return stat_.st_birthtimespec;
+        }
+#endif
     };
 
     std::expected<file_info, error_code> get_file_info(std::string_view path) noexcept
