@@ -88,6 +88,17 @@ namespace unix::system_v::ipc
             return attach(nullptr, flags);
         }
 
+        std::expected<void, error_code> remove() const noexcept
+        {
+            const auto ret = shmctl(handle_, IPC_RMID, nullptr);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+
     private:
         handle_type handle_;
     };

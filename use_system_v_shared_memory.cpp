@@ -37,5 +37,18 @@ int main(int, char **)
     }
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
+
+    // write a message
+    const char *message = "Hello, shared memory!";
+    strcpy(static_cast<char *>(memory.get()), message);
+
+    const auto shared_memory_marked_for_removal = shared_memory.remove();
+
+    if (!shared_memory_marked_for_removal)
+    {
+        std::println("failed to mark shared memory for removal: {}", unix::to_string(shared_memory_marked_for_removal.error()).data());
+        return EXIT_FAILURE;
+    }
+    std::println("shared memory marked for removal");
     return EXIT_SUCCESS;
 }
