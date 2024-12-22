@@ -12,7 +12,6 @@
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
-#include <print>
 
 namespace unix::system_v::ipc
 {
@@ -68,7 +67,6 @@ namespace unix::system_v::ipc
             {
                 return std::unexpected{info_retrieved.error()};
             }
-            std::println("created");
             const auto count = info_retrieved.value().sem_nsems;
             assert(count > 0);
             return std::expected<semaphore_set, error_code>{std::in_place, handle, count};
