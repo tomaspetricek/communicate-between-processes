@@ -1,5 +1,5 @@
-#ifndef UNIX_SYSTEM_V_IPC_SHARED_MEMORY_HPP
-#define UNIX_SYSTEM_V_IPC_SHARED_MEMORY_HPP
+#ifndef UNIX_SYSTEM_V_IPC_MESSAGE_QUEUE_HPP
+#define UNIX_SYSTEM_V_IPC_MESSAGE_QUEUE_HPP
 
 #include <cassert>
 #include <expected>
@@ -10,8 +10,8 @@
 
 namespace unix::system_v::ipc
 {
-    class shared_memory : public ipc::primitive {
+    class message_queue : public ipc::primitive {
     };
 }
 
-#endif // UNIX_SYSTEM_V_IPC_SHARED_MEMORY_HPP
+#endif // UNIX_SYSTEM_V_IPC_MESSAGE_QUEUE_HPP
