@@ -49,8 +49,8 @@ int main(int, char **)
     auto &shared_memory = shared_memory_created.value();
     resource_remover_t<ipc::shared_memory> shared_memory_remover{&shared_memory};
 
-    constexpr std::size_t semaphore_count{2}, readiness_sem_index{0},
-        message_sem_index{1};
+    constexpr std::size_t semaphore_count{3}, readiness_sem_index{0},
+        written_message_sem_index{1}, read_message_sem_index{2};
     auto semaphore_created =
         ipc::semaphore_set::create_private(semaphore_count, perms);
 
@@ -63,7 +63,7 @@ int main(int, char **)
     auto &semaphores = semaphore_created.value();
     resource_remover_t<ipc::semaphore_set> semaphore_remover{&semaphores};
 
-    std::array<unsigned short, semaphore_count> init_values{{0, 0}};
+    std::array<unsigned short, semaphore_count> init_values = {0};
     const auto semaphore_initialized = semaphores.set_values(init_values);
 
     if (!semaphore_initialized)
@@ -139,7 +139,7 @@ int main(int, char **)
 
         std::println("wait for message");
         const auto message_written =
-            semaphores.decrease_value(message_sem_index, -1);
+            semaphores.decrease_value(written_message_sem_index, -1);
 
         if (!message_written)
         {
@@ -149,13 +149,14 @@ int main(int, char **)
             return EXIT_FAILURE;
         }
         const auto *message = static_cast<char *>(memory.get());
-        std::println("received message: {} by child with id: {}", message, process_id);
-        const auto message_read = semaphores.increase_value(message_sem_index, 1);
+        std::println("received message: {} by child with id: {}", message,
+                     process_id);
+        const auto message_read = semaphores.increase_value(read_message_sem_index, 1);
 
         if (!message_read)
         {
             std::println("failed to send signal about message being read due to: {}",
-                         unix::to_string(message_written.error()).data());
+                         unix::to_string(message_read.error()).data());
             return EXIT_FAILURE;
         }
     }
@@ -181,7 +182,7 @@ int main(int, char **)
 
             std::println("message written into shared memeory");
             const auto message_written =
-                semaphores.increase_value(message_sem_index, 1);
+                semaphores.increase_value(written_message_sem_index, 1);
 
             if (!message_written)
             {
@@ -191,13 +192,13 @@ int main(int, char **)
                 return EXIT_FAILURE;
             }
             const auto message_read =
-                semaphores.decrease_value(message_sem_index, -1);
+                semaphores.decrease_value(read_message_sem_index, -1);
 
             if (!message_read)
             {
                 std::println(
                     "failed to receive signal about message being read due to: {}",
-                    unix::to_string(message_written.error()).data());
+                    unix::to_string(message_read.error()).data());
                 return EXIT_FAILURE;
             }
         }
