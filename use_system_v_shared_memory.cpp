@@ -17,8 +17,7 @@ static void remove_resource(Resource *resource) noexcept
 
 template <class Resource>
 using resource_remover_t =
-    std::unique_ptr<Resource,
-                    unix::system_v::ipc::deleter<remove_resource<Resource>>>;
+    std::unique_ptr<Resource, unix::deleter<remove_resource<Resource>>>;
 
 int main(int, char **)
 {
@@ -85,6 +84,7 @@ int main(int, char **)
     // the parent process shall do the clean-up
     if (unix::is_child_process(process_created.value()))
     {
+        // release does not call deleter
         shared_memory_remover.release();
         semaphore_remover.release();
     }

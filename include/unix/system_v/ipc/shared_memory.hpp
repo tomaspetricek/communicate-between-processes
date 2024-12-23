@@ -6,6 +6,7 @@
 #include <sys/shm.h>
 #include <memory>
 
+#include "unix/deleter.hpp"
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
 #include "unix/system_v/ipc/key.hpp"
@@ -13,16 +14,6 @@
 
 namespace unix::system_v::ipc
 {
-    template <auto Function>
-    struct deleter
-    {
-        template <class Type>
-        constexpr void operator()(Type *arg) const
-        {
-            Function(arg);
-        }
-    };
-
     static void detach_shared_memory(void *shm_ptr) noexcept
     {
         const auto ret = shmdt(shm_ptr);
