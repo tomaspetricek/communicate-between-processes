@@ -4,6 +4,7 @@
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
+#include "unix/signal.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
@@ -35,7 +36,8 @@ int main(int, char **)
                                .others_can_write()
                                .others_can_execute()
                                .get();
-    auto shared_memory_created = ipc::shared_memory::create_private(mem_size, perms);
+    auto shared_memory_created =
+        ipc::shared_memory::create_private(mem_size, perms);
 
     if (!shared_memory_created)
     {
@@ -45,12 +47,12 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    resource_remover_t<ipc::shared_memory> shared_memory_remover{
-        &shared_memory};
+    resource_remover_t<ipc::shared_memory> shared_memory_remover{&shared_memory};
 
     constexpr std::size_t semaphore_count{2}, readiness_sem_index{0},
         message_sem_index{1};
-    auto semaphore_created = ipc::semaphore_set::create_private(semaphore_count, perms);
+    auto semaphore_created =
+        ipc::semaphore_set::create_private(semaphore_count, perms);
 
     if (!semaphore_created)
     {
@@ -71,17 +73,40 @@ int main(int, char **)
     }
     std::println("semaphores initialized");
 
-    const auto process_created = unix::create_process();
+    constexpr std::size_t create_process_count{10};
+    std::size_t created_processes_count{0};
+    bool is_child{false};
 
-    if (!process_created)
+    for (std::size_t i{0}; i < create_process_count; ++i)
     {
-        std::println("failed to create child process due to: {}",
-                     unix::to_string(process_created.error()).data());
+        const auto process_created = unix::create_process();
+
+        if (!process_created)
+        {
+            std::println("failed to create child process due to: {}",
+                         unix::to_string(process_created.error()).data());
+            continue;
+        }
+        if (!unix::is_child_process(process_created.value()))
+        {
+            std::println("created child process with id: {}",
+                         process_created.value());
+        }
+        else
+        {
+            is_child = true;
+            break;
+        }
+        created_processes_count++;
+    }
+    if (!is_child && (created_processes_count == 0))
+    {
+        std::println("failed to create any child process");
         return EXIT_FAILURE;
     }
 
     // the parent process shall do the clean-up
-    if (unix::is_child_process(process_created.value()))
+    if (is_child)
     {
         // release does not call deleter
         shared_memory_remover.release();
@@ -98,8 +123,9 @@ int main(int, char **)
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
 
-    if (unix::is_child_process(process_created.value()))
+    if (is_child)
     {
+        const auto process_id = unix::get_process_id();
         const auto readiness_signaled =
             semaphores.increase_value(readiness_sem_index, 1);
 
@@ -109,7 +135,7 @@ int main(int, char **)
                          unix::to_string(readiness_signaled.error()).data());
             return EXIT_FAILURE;
         }
-        std::println("child process ready");
+        std::println("child process with id: {} is ready", process_id);
 
         std::println("wait for message");
         const auto message_written =
@@ -123,13 +149,22 @@ int main(int, char **)
             return EXIT_FAILURE;
         }
         const auto *message = static_cast<char *>(memory.get());
-        std::println("received message: {}", message);
+        std::println("received message: {} by child with id: {}", message, process_id);
+        const auto message_read = semaphores.increase_value(message_sem_index, 1);
+
+        if (!message_read)
+        {
+            std::println("failed to send signal about message being read due to: {}",
+                         unix::to_string(message_written.error()).data());
+            return EXIT_FAILURE;
+        }
     }
     else
     {
-        std::println("wait till child process is prepared");
-        const auto readiness_signaled =
-            semaphores.decrease_value(readiness_sem_index, -1);
+        std::println("wait till all children process are ready");
+        const auto readiness_signaled = semaphores.decrease_value(
+            readiness_sem_index,
+            -static_cast<ipc::semaphore_value_t>(created_processes_count));
 
         if (!readiness_signaled)
         {
@@ -137,37 +172,70 @@ int main(int, char **)
                          unix::to_string(readiness_signaled.error()).data());
             return EXIT_FAILURE;
         }
-        // write a message
-        const char *message = "Hello, shared memory!";
-        strcpy(static_cast<char *>(memory.get()), message);
-        std::println("message written into shared memeory");
 
-        const auto message_written =
-            semaphores.increase_value(message_sem_index, 1);
-
-        if (!message_written)
+        for (std::size_t i{0}; i < created_processes_count; ++i)
         {
-            std::println(
-                "failed to send signal about message being written due to: {}",
-                unix::to_string(message_written.error()).data());
-            return EXIT_FAILURE;
-        }
-        std::println("wait for child to terminate");
-        int status;
-        const auto child_terminated = unix::wait_till_child_terminates(&status);
+            // write a message
+            const char *message = "Hello, shared memory!";
+            strcpy(static_cast<char *>(memory.get()), message);
 
-        if (!child_terminated)
-        {
-            const auto error = child_terminated.error();
+            std::println("message written into shared memeory");
+            const auto message_written =
+                semaphores.increase_value(message_sem_index, 1);
 
-            if (error.code != ECHILD)
+            if (!message_written)
             {
-                std::println("failed waiting for a child: {}",
-                             unix::to_string(error).data());
+                std::println(
+                    "failed to send signal about message being written due to: {}",
+                    unix::to_string(message_written.error()).data());
+                return EXIT_FAILURE;
+            }
+            const auto message_read =
+                semaphores.decrease_value(message_sem_index, -1);
+
+            if (!message_read)
+            {
+                std::println(
+                    "failed to receive signal about message being read due to: {}",
+                    unix::to_string(message_written.error()).data());
                 return EXIT_FAILURE;
             }
         }
-        std::println("child terminated");
+
+        std::println("wait for child to terminate");
+        int status;
+
+        while (true)
+        {
+            const auto child_terminated = unix::wait_till_child_terminates(&status);
+
+            if (!child_terminated)
+            {
+                const auto error = child_terminated.error();
+
+                if (error.code != ECHILD)
+                {
+                    std::println("failed waiting for a child: {}",
+                                 unix::to_string(error).data());
+                    return EXIT_FAILURE;
+                }
+                std::println("all children terminated");
+                break;
+            }
+            const auto child_id = child_terminated.value();
+
+            std::println("child with process id: {} terminated", child_id);
+
+            if (WIFEXITED(status))
+            {
+                std::println("child exit status: {}", WEXITSTATUS(status));
+            }
+            else if (WIFSIGNALED(status))
+            {
+                psignal(WTERMSIG(status), "child exit signal");
+            }
+        }
+        std::println("all done");
     }
     return EXIT_SUCCESS;
 }
