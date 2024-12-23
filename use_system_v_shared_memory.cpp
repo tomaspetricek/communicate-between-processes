@@ -21,6 +21,8 @@ using resource_remover_t =
 
 int main(int, char **)
 {
+    using namespace unix::system_v;
+
     constexpr std::size_t mem_size{2084};
     constexpr auto perms = unix::permissions_builder{}
                                .owner_can_read()
@@ -33,8 +35,7 @@ int main(int, char **)
                                .others_can_write()
                                .others_can_execute()
                                .get();
-    auto shared_memory_created =
-        unix::system_v::ipc::shared_memory::create_private(mem_size, perms);
+    auto shared_memory_created = ipc::shared_memory::create_private(mem_size, perms);
 
     if (!shared_memory_created)
     {
@@ -44,13 +45,12 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    resource_remover_t<unix::system_v::ipc::shared_memory> shared_memory_remover{
+    resource_remover_t<ipc::shared_memory> shared_memory_remover{
         &shared_memory};
 
     constexpr std::size_t semaphore_count{2}, readiness_sem_index{0},
         message_sem_index{1};
-    auto semaphore_created = unix::system_v::ipc::semaphore_set::create_private(
-        semaphore_count, perms);
+    auto semaphore_created = ipc::semaphore_set::create_private(semaphore_count, perms);
 
     if (!semaphore_created)
     {
@@ -59,8 +59,7 @@ int main(int, char **)
     }
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
-    resource_remover_t<unix::system_v::ipc::semaphore_set> semaphore_remover{
-        &semaphores};
+    resource_remover_t<ipc::semaphore_set> semaphore_remover{&semaphores};
 
     std::array<unsigned short, semaphore_count> init_values{{0, 0}};
     const auto semaphore_initialized = semaphores.set_values(init_values);
