@@ -7,6 +7,7 @@
 #include <span>
 #include <string_view>
 
+#include "lock_free/ring_buffer.hpp"
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
@@ -37,6 +38,11 @@ template <class Resource>
 using resource_destroyer_t =
     std::unique_ptr<Resource, unix::deleter<destroy_resource<Resource>>>;
 
+constexpr std::size_t message_capacity = 256;
+constexpr std::size_t message_queue_capacity = 32;
+using message_t = std::array<char, message_capacity>;
+using message_queue_t = lock_free::ring_buffer<message_t, message_queue_capacity>;
+
 // ToDo: remove global state
 constexpr std::size_t semaphore_count{3}, readiness_sem_index{0},
     written_message_sem_index{1}, read_message_sem_index{2};
@@ -57,7 +63,7 @@ bool signal_readiness_to_parent(
 }
 
 bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
-                      const std::span<char> message,
+                      message_queue_t& message_queue,
                       const unix::process_id_t &process_id,
                       const std::atomic<bool> &done_flag) noexcept
 {
@@ -79,6 +85,7 @@ bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
           unix::to_string(message_written.error()).data());
       return false;
     }
+    const auto message = message_queue.pop();
     std::println("received message: {} by child with id: {}", message.data(),
                  process_id);
     const auto message_read =
@@ -116,11 +123,12 @@ bool wait_till_all_children_ready(
 bool generate_messages(const std::size_t created_process_count,
                        const std::size_t message_count,
                        unix::system_v::ipc::semaphore_set &semaphores,
-                       std::span<char> message,
+                       message_queue_t& message_queue,
                        std::atomic<bool> &done_flag) noexcept
 {
   for (std::size_t i{0}; i < message_count; ++i)
   {
+    message_t message;
     const auto ret = snprintf(message.data(), message.size(), "message with id: %zu", i);
 
     if (unix::operation_failed(ret))
@@ -128,6 +136,8 @@ bool generate_messages(const std::size_t created_process_count,
       std::println("failed to create message");
       return false;
     }
+    message_queue.push(std::move(message));
+
     std::println("message written into shared memeory");
     const auto message_written =
         semaphores.increase_value(written_message_sem_index, 1);
@@ -238,7 +248,7 @@ process_info create_child_processes(std::size_t create_process_count) noexcept
 }
 
 bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
-                      const std::span<char> &message,
+                      message_queue_t& message_queue,
                       const std::atomic<bool> &done_flag) noexcept
 {
   const auto process_id = unix::get_process_id();
@@ -249,7 +259,7 @@ bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
   }
   std::println("child process with id: {} is ready", process_id);
 
-  if (!process_messages(semaphores, message, process_id, done_flag))
+  if (!process_messages(semaphores, message_queue, process_id, done_flag))
   {
     return false;
   }
@@ -259,7 +269,7 @@ bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
 bool produce_messages(std::size_t created_process_count,
                       std::size_t message_count,
                       unix::system_v::ipc::semaphore_set &semaphores,
-                      std::span<char> message,
+                      message_queue_t& message_queue,
                       std::atomic<bool> &done_flag) noexcept
 {
   std::println("wait till all children process are ready");
@@ -271,7 +281,7 @@ bool produce_messages(std::size_t created_process_count,
   std::println("generate messeages");
 
   if (!generate_messages(created_process_count, message_count, semaphores,
-                         message, done_flag))
+                         message_queue, done_flag))
   {
     return false;
   }
@@ -294,10 +304,8 @@ void *adavance_pointer(void *ptr, std::size_t byte_count) noexcept
 
 struct shared_data
 {
-  static constexpr std::size_t message_capacity = 256;
   std::atomic<bool> done_flag{false};
-  std::array<char, message_capacity> message{
-      '\n'}; // Character array to hold string
+  message_queue_t message_queue;
 };
 
 int main(int, char **)
@@ -343,7 +351,7 @@ int main(int, char **)
   auto &semaphores = semaphore_created.value();
   resource_remover_t<ipc::semaphore_set> semaphore_remover{&semaphores};
 
-  std::array<unsigned short, semaphore_count> init_values = {0};
+  std::array<unsigned short, semaphore_count> init_values = {0, 0, message_queue_t::capacity()};
   const auto semaphore_initialized = semaphores.set_values(init_values);
 
   if (!semaphore_initialized)
@@ -383,7 +391,7 @@ int main(int, char **)
 
   if (info.is_child)
   {
-    if (!consume_messages(semaphores, data->message, data->done_flag))
+    if (!consume_messages(semaphores, data->message_queue, data->done_flag))
     {
       return EXIT_FAILURE;
     }
@@ -391,7 +399,7 @@ int main(int, char **)
   else
   {
     if (!produce_messages(info.created_process_count, message_count, semaphores,
-                          data->message, data->done_flag))
+                          data->message_queue, data->done_flag))
     {
       return EXIT_FAILURE;
     }
