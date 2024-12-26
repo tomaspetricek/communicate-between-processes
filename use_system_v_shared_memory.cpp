@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cstdio>
 #include <memory>
 #include <print>
 #include <span>
@@ -78,7 +79,7 @@ bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
           unix::to_string(message_written.error()).data());
       return false;
     }
-    std::println("received message: {} by child with id: {}", message,
+    std::println("received message: {} by child with id: {}", message.data(),
                  process_id);
     const auto message_read =
         semaphores.increase_value(read_message_sem_index, 1);
@@ -113,21 +114,20 @@ bool wait_till_all_children_ready(
 }
 
 bool generate_messages(const std::size_t created_process_count,
+                       const std::size_t message_count,
                        unix::system_v::ipc::semaphore_set &semaphores,
                        std::span<char> message,
                        std::atomic<bool> &done_flag) noexcept
 {
-  // write a message
-  constexpr std::string_view text{"Hello, shared memory!"};
-
-  for (std::size_t i{0}; i < std::min(message.size(), text.size()); ++i)
+  for (std::size_t i{0}; i < message_count; ++i)
   {
-    message[i] = text[i];
-  }
-  message.back() = '\n';
+    const auto ret = snprintf(message.data(), message.size(), "message with id: %zu", i);
 
-  for (std::size_t i{0}; i < created_process_count; ++i)
-  {
+    if (unix::operation_failed(ret))
+    {
+      std::println("failed to create message");
+      return false;
+    }
     std::println("message written into shared memeory");
     const auto message_written =
         semaphores.increase_value(written_message_sem_index, 1);
@@ -257,6 +257,7 @@ bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
 }
 
 bool produce_messages(std::size_t created_process_count,
+                      std::size_t message_count,
                       unix::system_v::ipc::semaphore_set &semaphores,
                       std::span<char> message,
                       std::atomic<bool> &done_flag) noexcept
@@ -269,8 +270,8 @@ bool produce_messages(std::size_t created_process_count,
   }
   std::println("generate messeages");
 
-  if (!generate_messages(created_process_count, semaphores, message,
-                         done_flag))
+  if (!generate_messages(created_process_count, message_count, semaphores,
+                         message, done_flag))
   {
     return false;
   }
@@ -303,8 +304,8 @@ int main(int, char **)
 {
   using namespace unix::system_v;
 
-  constexpr std::size_t mem_size{sizeof(shared_data)};
-  constexpr std::size_t create_process_count{10};
+  constexpr std::size_t mem_size{sizeof(shared_data)}, create_process_count{10},
+      message_count{200};
 
   constexpr auto perms = unix::permissions_builder{}
                              .owner_can_read()
@@ -389,8 +390,8 @@ int main(int, char **)
   }
   else
   {
-    if (!produce_messages(info.created_process_count, semaphores, data->message,
-                          data->done_flag))
+    if (!produce_messages(info.created_process_count, message_count, semaphores,
+                          data->message, data->done_flag))
     {
       return EXIT_FAILURE;
     }
