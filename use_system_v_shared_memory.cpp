@@ -24,7 +24,8 @@ using resource_remover_t =
 constexpr std::size_t semaphore_count{3}, readiness_sem_index{0},
     written_message_sem_index{1}, read_message_sem_index{2};
 
-bool signal_readiness_to_parent(unix::system_v::ipc::semaphore_set &semaphores) noexcept
+bool signal_readiness_to_parent(
+    unix::system_v::ipc::semaphore_set &semaphores) noexcept
 {
     const auto readiness_signaled =
         semaphores.increase_value(readiness_sem_index, 1);
@@ -160,6 +161,87 @@ bool wait_till_all_children_termninate() noexcept
     return true;
 }
 
+struct process_info
+{
+    std::size_t created_process_count{0};
+    bool is_child{false};
+};
+
+process_info create_child_processes(std::size_t create_process_count) noexcept
+{
+    process_info info;
+
+    for (std::size_t i{0}; i < create_process_count; ++i)
+    {
+        const auto process_created = unix::create_process();
+
+        if (!process_created)
+        {
+            std::println("failed to create child process due to: {}",
+                         unix::to_string(process_created.error()).data());
+            continue;
+        }
+        if (!unix::is_child_process(process_created.value()))
+        {
+            std::println("created child process with id: {}",
+                         process_created.value());
+        }
+        else
+        {
+            info.is_child = true;
+            break;
+        }
+        info.created_process_count++;
+    }
+    return info;
+}
+
+bool consume_messages(
+    unix::system_v::ipc::semaphore_set &semaphores,
+    unix::system_v::ipc::shared_memory_ptr_t &memory) noexcept
+{
+    const auto process_id = unix::get_process_id();
+
+    if (!signal_readiness_to_parent(semaphores))
+    {
+        return false;
+    }
+    std::println("child process with id: {} is ready", process_id);
+
+    if (!process_messages(semaphores, memory, process_id))
+    {
+        return false;
+    }
+    return true;
+}
+
+bool produce_messages(
+    std::size_t created_process_count,
+    unix::system_v::ipc::semaphore_set &semaphores,
+    unix::system_v::ipc::shared_memory_ptr_t &memory) noexcept
+{
+    std::println("wait till all children process are ready");
+
+    if (!wait_till_all_children_ready(created_process_count, semaphores))
+    {
+        return false;
+    }
+    std::println("generate messeages");
+
+    if (!generate_messages(created_process_count, semaphores, memory))
+    {
+        return false;
+    }
+    std::println("wait for all children to terminate");
+
+    if (!wait_till_all_children_termninate())
+    {
+        return false;
+    }
+    std::println("all done");
+    return true;
+}
+
 int main(int, char **)
 {
     using namespace unix::system_v;
@@ -212,39 +294,17 @@ int main(int, char **)
     std::println("semaphores initialized");
 
     constexpr std::size_t create_process_count{10};
-    std::size_t created_process_count{0};
-    bool is_child{false};
 
-    for (std::size_t i{0}; i < create_process_count; ++i)
-    {
-        const auto process_created = unix::create_process();
+    const auto info = create_child_processes(create_process_count);
 
-        if (!process_created)
-        {
-            std::println("failed to create child process due to: {}",
-                         unix::to_string(process_created.error()).data());
-            continue;
-        }
-        if (!unix::is_child_process(process_created.value()))
-        {
-            std::println("created child process with id: {}",
-                         process_created.value());
-        }
-        else
-        {
-            is_child = true;
-            break;
-        }
-        created_process_count++;
-    }
-    if (!is_child && (created_process_count == 0))
+    if (!info.is_child && (info.created_process_count == 0))
     {
         std::println("failed to create any child process");
         return EXIT_FAILURE;
     }
 
     // the parent process shall do the clean-up
-    if (is_child)
+    if (info.is_child)
     {
         // release does not call deleter
         shared_memory_remover.release();
@@ -261,42 +321,19 @@ int main(int, char **)
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
 
-    if (is_child)
+    if (info.is_child)
     {
-        const auto process_id = unix::get_process_id();
-
-        if (!signal_readiness_to_parent(semaphores))
-        {
-            return EXIT_FAILURE;
-        }
-        std::println("child process with id: {} is ready", process_id);
-
-        if (!process_messages(semaphores, memory, process_id))
+        if (!consume_messages(semaphores, memory))
         {
             return EXIT_FAILURE;
         }
     }
     else
     {
-        std::println("wait till all children process are ready");
-
-        if (!wait_till_all_children_ready(create_process_count, semaphores))
+        if (!produce_messages(info.created_process_count, semaphores, memory))
         {
             return EXIT_FAILURE;
         }
-        std::println("generate messeages");
-
-        if (!generate_messages(create_process_count, semaphores, memory))
-        {
-            return EXIT_FAILURE;
-        }
-        std::println("wait for all children to terminate");
-
-        if (!wait_till_all_children_termninate())
-        {
-            return EXIT_FAILURE;
-        }
-        std::println("all done");
     }
     return EXIT_SUCCESS;
 }
