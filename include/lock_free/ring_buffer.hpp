@@ -23,12 +23,13 @@ namespace lock_free
             return (next_write_idx == read_idx_.load(std::memory_order_relaxed));
         }
 
-        void push(Value &&val)
+        template <typename... Args>
+        void push(Args &&...args) noexcept
         {
             const auto write_idx = write_idx_.load(std::memory_order_relaxed);
             auto next_write_idx = (write_idx + 1) % data_.size();
             assert(next_write_idx < data_.size());
-            data_[write_idx] = std::move(val);
+            data_[write_idx] = Value{std::forward<Args>(args)...};
             write_idx_.store(next_write_idx, std::memory_order_release);
         }
 

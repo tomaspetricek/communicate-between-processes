@@ -63,7 +63,7 @@ bool signal_readiness_to_parent(
 }
 
 bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
-                      message_queue_t& message_queue,
+                      message_queue_t &message_queue,
                       const unix::process_id_t &process_id,
                       const std::atomic<bool> &done_flag) noexcept
 {
@@ -123,12 +123,13 @@ bool wait_till_all_children_ready(
 bool generate_messages(const std::size_t created_process_count,
                        const std::size_t message_count,
                        unix::system_v::ipc::semaphore_set &semaphores,
-                       message_queue_t& message_queue,
+                       message_queue_t &message_queue,
                        std::atomic<bool> &done_flag) noexcept
 {
+  message_t message;
+
   for (std::size_t i{0}; i < message_count; ++i)
   {
-    message_t message;
     const auto ret = snprintf(message.data(), message.size(), "message with id: %zu", i);
 
     if (unix::operation_failed(ret))
@@ -136,7 +137,7 @@ bool generate_messages(const std::size_t created_process_count,
       std::println("failed to create message");
       return false;
     }
-    message_queue.push(std::move(message));
+    message_queue.push(message);
 
     std::println("message written into shared memeory");
     const auto message_written =
@@ -248,7 +249,7 @@ process_info create_child_processes(std::size_t create_process_count) noexcept
 }
 
 bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
-                      message_queue_t& message_queue,
+                      message_queue_t &message_queue,
                       const std::atomic<bool> &done_flag) noexcept
 {
   const auto process_id = unix::get_process_id();
@@ -269,7 +270,7 @@ bool consume_messages(unix::system_v::ipc::semaphore_set &semaphores,
 bool produce_messages(std::size_t created_process_count,
                       std::size_t message_count,
                       unix::system_v::ipc::semaphore_set &semaphores,
-                      message_queue_t& message_queue,
+                      message_queue_t &message_queue,
                       std::atomic<bool> &done_flag) noexcept
 {
   std::println("wait till all children process are ready");
