@@ -40,7 +40,7 @@ bool signal_readiness_to_parent(
 }
 
 bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
-                      const unix::system_v::ipc::shared_memory_ptr_t &memory,
+                      const char* message,
                       const unix::process_id_t &process_id) noexcept
 {
     std::println("wait for message");
@@ -54,7 +54,6 @@ bool process_messages(unix::system_v::ipc::semaphore_set &semaphores,
             unix::to_string(message_written.error()).data());
         return false;
     }
-    const auto *message = static_cast<char *>(memory.get());
     std::println("received message: {} by child with id: {}", message,
                  process_id);
     const auto message_read =
@@ -91,13 +90,13 @@ bool wait_till_all_children_ready(
 bool generate_messages(
     const std::size_t created_process_count,
     unix::system_v::ipc::semaphore_set &semaphores,
-    unix::system_v::ipc::shared_memory_ptr_t &memory) noexcept
+    char* message) noexcept
 {
     for (std::size_t i{0}; i < created_process_count; ++i)
     {
         // write a message
-        const char *message = "Hello, shared memory!";
-        strcpy(static_cast<char *>(memory.get()), message);
+        const char *text = "Hello, shared memory!";
+        strcpy(message, text);
 
         std::println("message written into shared memeory");
         const auto message_written =
@@ -198,7 +197,7 @@ process_info create_child_processes(std::size_t create_process_count) noexcept
 
 bool consume_messages(
     unix::system_v::ipc::semaphore_set &semaphores,
-    unix::system_v::ipc::shared_memory_ptr_t &memory) noexcept
+    const char* message) noexcept
 {
     const auto process_id = unix::get_process_id();
 
@@ -208,7 +207,7 @@ bool consume_messages(
     }
     std::println("child process with id: {} is ready", process_id);
 
-    if (!process_messages(semaphores, memory, process_id))
+    if (!process_messages(semaphores, message, process_id))
     {
         return false;
     }
@@ -218,7 +217,7 @@ bool consume_messages(
 bool produce_messages(
     std::size_t created_process_count,
     unix::system_v::ipc::semaphore_set &semaphores,
-    unix::system_v::ipc::shared_memory_ptr_t &memory) noexcept
+    char* message) noexcept
 {
     std::println("wait till all children process are ready");
 
@@ -228,7 +227,7 @@ bool produce_messages(
     }
     std::println("generate messeages");
 
-    if (!generate_messages(created_process_count, semaphores, memory))
+    if (!generate_messages(created_process_count, semaphores, message))
     {
         return false;
     }
@@ -321,16 +320,18 @@ int main(int, char **)
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
 
+    auto *message = static_cast<char *>(memory.get());
+
     if (info.is_child)
     {
-        if (!consume_messages(semaphores, memory))
+        if (!consume_messages(semaphores, message))
         {
             return EXIT_FAILURE;
         }
     }
     else
     {
-        if (!produce_messages(info.created_process_count, semaphores, memory))
+        if (!produce_messages(info.created_process_count, semaphores, message))
         {
             return EXIT_FAILURE;
         }
