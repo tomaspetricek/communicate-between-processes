@@ -135,7 +135,8 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
                       unix::system_v::ipc::semaphore_set &semaphores,
                       message_queue_t &message_queue) noexcept
 {
-  const auto start_production = semaphores.decrease_value(producter_sem_index, -1);
+  const auto start_production =
+      semaphores.decrease_value(producter_sem_index, -1);
 
   if (!start_production)
   {
@@ -147,7 +148,8 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
   for (std::size_t i{0}; i < message_count; ++i)
   {
     const auto ret =
-        snprintf(message.data(), message.size(), "message with id: %zu from producer: %zu", i, info.group_id);
+        snprintf(message.data(), message.size(),
+                 "message with id: %zu from producer: %zu", i, info.group_id);
 
     if (unix::operation_failed(ret))
     {
@@ -179,8 +181,8 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
       return false;
     }
   }
-  const auto production_done = semaphores.increase_value(
-      producter_sem_index, 1);
+  const auto production_done =
+      semaphores.increase_value(producter_sem_index, 1);
 
   if (!production_done)
   {
@@ -399,17 +401,19 @@ int main(int, char **)
     }
     std::println("all child processes are ready");
 
-    const auto start_production = semaphores.increase_value(producter_sem_index, producer_count);
+    const auto start_production =
+        semaphores.increase_value(producter_sem_index, producer_count);
 
     if (!start_production)
     {
       std::println("failed to send start signal to producers");
+      return EXIT_FAILURE;
     }
   }
 
   if (info.is_producer)
   {
-    std::println("produce messages");
+    std::println("start producing messages");
 
     if (!produce_messages(info, message_count, semaphores,
                           data->message_queue))
@@ -432,27 +436,27 @@ int main(int, char **)
 
   if (!info.is_child)
   {
-    std::println("wait for production to be done");
-    const auto production_done = semaphores.decrease_value(
+    std::println("wait for all producers to be done");
+    const auto production_stopped = semaphores.decrease_value(
         producter_sem_index, -static_cast<int>(producer_count));
 
-    if (!production_done)
-    {
-      std::println("failed to receive production done signal");
-      return EXIT_FAILURE;
-    }
-    std::println("generating done");
-
-    data->done_flag.store(true);
-    const auto consumption_done =
-        semaphores.increase_value(written_message_sem_index, consumer_count);
-
-    if (!consumption_done)
+    if (!production_stopped)
     {
       std::println(
-          "failed to send signal to consumers about message generating "
-          "being done: {}",
-          unix::to_string(consumption_done.error()).data());
+          "failed to receive confirmation that production has stopped: {}",
+          unix::to_string(production_stopped.error()).data());
+      return EXIT_FAILURE;
+    }
+    std::println("all producers done");
+
+    data->done_flag.store(true);
+    const auto stop_consumption =
+        semaphores.increase_value(written_message_sem_index, consumer_count);
+
+    if (!stop_consumption)
+    {
+      std::println("failed to not notify consumers to stop due to: {}",
+                   unix::to_string(stop_consumption.error()).data());
       return EXIT_FAILURE;
     }
     std::println("wait for all children to terminate");
