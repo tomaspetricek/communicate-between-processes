@@ -145,11 +145,24 @@ bool wait_till_production_start(
   return true;
 }
 
+bool notify_about_production_completion(
+    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+{
+  const auto production_done =
+      semaphores.increase_value(producter_sem_index, 1);
+
+  if (!production_done)
+  {
+    std::println("failed to send signal about production being done");
+    return false;
+  }
+  return true;
+}
+
 bool produce_messages(const process_info &info, const std::size_t message_count,
                       unix::system_v::ipc::semaphore_set &semaphores,
                       message_queue_t &message_queue) noexcept
 {
-
   message_t message;
 
   for (std::size_t i{0}; i < message_count; ++i)
@@ -187,14 +200,6 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
           unix::to_string(message_read.error()).data());
       return false;
     }
-  }
-  const auto production_done =
-      semaphores.increase_value(producter_sem_index, 1);
-
-  if (!production_done)
-  {
-    std::println("failed to send signal about production being done");
-    return false;
   }
   return true;
 }
@@ -481,6 +486,13 @@ int main(int, char **)
       return EXIT_FAILURE;
     }
     std::println("message production done");
+    std::println("notify about production completion");
+
+    if (!notify_about_production_completion(semaphores))
+    {
+      return EXIT_FAILURE;
+    }
+    std::println("notified about production completion");
   }
   else
   {
