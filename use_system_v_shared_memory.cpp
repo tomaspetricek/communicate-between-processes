@@ -139,7 +139,6 @@ bool wait_till_production_start(
 bool notify_about_production_completion(
     const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
-
   const auto production_done = producers_notifier.notify_one();
 
   if (!production_done)
@@ -411,15 +410,13 @@ int main(int, char **)
 
   if (!info.is_child)
   {
-    if (info.created_process_count == 0)
+    if (info.created_process_count != children_count)
     {
-      std::println("failed to create any child process");
+      std::println("failed to create all children process");
       return EXIT_FAILURE;
     }
     assert(consumer_count > 0 && producer_count > 0);
     assert(info.is_producer);
-    std::println("producer count: {}", producer_count);
-    std::println("consumer count: {}", consumer_count);
   }
 
   // the parent process shall do the clean-up
