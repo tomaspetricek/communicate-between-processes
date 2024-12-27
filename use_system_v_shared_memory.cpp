@@ -468,7 +468,7 @@ int main(int, char **)
   {
     std::println("wait till production start");
 
-    if (wait_till_production_start(semaphores))
+    if (!wait_till_production_start(semaphores))
     {
       return EXIT_FAILURE;
     }
@@ -498,14 +498,14 @@ int main(int, char **)
   {
     std::println("wait for all production to complete");
 
-    if (wait_till_production_complete(producer_count, semaphores))
+    if (!wait_till_production_complete(producer_count, semaphores))
     {
       return EXIT_FAILURE;
     }
     std::println("all producers done");
     std::println("stop message consumption");
 
-    if (stop_consumption(consumer_count, semaphores, data->done_flag))
+    if (!stop_consumption(consumer_count, semaphores, data->done_flag))
     {
       return EXIT_FAILURE;
     }
