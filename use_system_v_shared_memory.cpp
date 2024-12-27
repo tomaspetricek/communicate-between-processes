@@ -12,6 +12,7 @@
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
 #include "unix/signal.hpp"
+#include "unix/system_v/ipc/group_notifier.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
@@ -44,11 +45,6 @@ using message_t = std::array<char, message_capacity>;
 using message_queue_t =
     lock_free::ring_buffer<message_t, message_queue_capacity>;
 
-// ToDo: remove global state
-constexpr std::size_t semaphore_count{4}, readiness_sem_index{0},
-    written_message_sem_index{1}, read_message_sem_index{2},
-    producter_sem_index{3};
-
 struct process_info
 {
   std::size_t created_process_count{0};
@@ -57,11 +53,10 @@ struct process_info
   std::size_t group_id{0};
 };
 
-bool signal_readiness_to_parent(
-    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+bool signal_readiness_to_parent(const unix::system_v::ipc::group_notifier
+                                    &children_readiness_notifier) noexcept
 {
-  const auto readiness_signaled =
-      semaphores.increase_value(readiness_sem_index, 1);
+  const auto readiness_signaled = children_readiness_notifier.notify_one();
 
   if (!readiness_signaled)
   {
@@ -72,17 +67,17 @@ bool signal_readiness_to_parent(
   return true;
 }
 
-bool consume_messages(const process_info &info,
-                      unix::system_v::ipc::semaphore_set &semaphores,
-                      message_queue_t &message_queue,
-                      const unix::process_id_t &process_id,
-                      const std::atomic<bool> &done_flag) noexcept
+bool consume_messages(
+    const process_info &info,
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    const unix::system_v::ipc::group_notifier &message_read_notifier,
+    message_queue_t &message_queue, const unix::process_id_t &process_id,
+    const std::atomic<bool> &done_flag) noexcept
 {
   while (true)
   {
     std::println("wait for message");
-    const auto message_written =
-        semaphores.decrease_value(written_message_sem_index, -1);
+    const auto message_written = message_written_notifier.wait_for_one();
 
     if (done_flag.load())
     {
@@ -99,8 +94,7 @@ bool consume_messages(const process_info &info,
     const auto message = message_queue.pop();
     std::println("received message: {} by child with id: {}", message.data(),
                  process_id);
-    const auto message_read =
-        semaphores.increase_value(read_message_sem_index, 1);
+    const auto message_read = message_read_notifier.notify_one();
 
     if (!message_read)
     {
@@ -112,15 +106,13 @@ bool consume_messages(const process_info &info,
   return true;
 }
 
-bool wait_till_all_children_ready(
-    const std::size_t created_process_count,
-    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+bool wait_till_all_children_ready(const std::size_t created_process_count,
+                                  const unix::system_v::ipc::group_notifier
+                                      &children_readiness_notifier) noexcept
 {
   using namespace unix::system_v;
 
-  const auto readiness_signaled = semaphores.decrease_value(
-      readiness_sem_index,
-      -static_cast<ipc::semaphore_value_t>(created_process_count));
+  const auto readiness_signaled = children_readiness_notifier.wait_for_all();
 
   if (!readiness_signaled)
   {
@@ -132,10 +124,9 @@ bool wait_till_all_children_ready(
 }
 
 bool wait_till_production_start(
-    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+    const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
-  const auto start_production =
-      semaphores.decrease_value(producter_sem_index, -1);
+  const auto start_production = producers_notifier.wait_for_one();
 
   if (!start_production)
   {
@@ -146,10 +137,10 @@ bool wait_till_production_start(
 }
 
 bool notify_about_production_completion(
-    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+    const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
-  const auto production_done =
-      semaphores.increase_value(producter_sem_index, 1);
+
+  const auto production_done = producers_notifier.notify_one();
 
   if (!production_done)
   {
@@ -159,9 +150,11 @@ bool notify_about_production_completion(
   return true;
 }
 
-bool produce_messages(const process_info &info, const std::size_t message_count,
-                      unix::system_v::ipc::semaphore_set &semaphores,
-                      message_queue_t &message_queue) noexcept
+bool produce_messages(
+    const process_info &info, const std::size_t message_count,
+    const unix::system_v::ipc::group_notifier &message_read_notifier,
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    message_queue_t &message_queue) noexcept
 {
   message_t message;
 
@@ -180,8 +173,7 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
 
     std::println("message written into shared memeory by producer: {}",
                  info.group_id);
-    const auto message_written =
-        semaphores.increase_value(written_message_sem_index, 1);
+    const auto message_written = message_written_notifier.notify_one();
 
     if (!message_written)
     {
@@ -190,8 +182,7 @@ bool produce_messages(const process_info &info, const std::size_t message_count,
           unix::to_string(message_written.error()).data());
       return false;
     }
-    const auto message_read =
-        semaphores.decrease_value(read_message_sem_index, -1);
+    const auto message_read = message_read_notifier.wait_for_one();
 
     if (!message_read)
     {
@@ -241,49 +232,49 @@ bool wait_till_all_children_termninate() noexcept
   return true;
 }
 
-process_info create_child_processes(std::size_t &producer_count,
-                                    std::size_t &consumer_count,
-                                    std::size_t create_process_count,
-                                    std::size_t producer_frequenecy) noexcept
+process_info create_child_processes(std::size_t child_producer_count,
+                                    std::size_t child_consumer_count) noexcept
 {
+  constexpr std::size_t process_counts_size{2};
+  using process_counts_t = std::array<std::size_t, process_counts_size>;
+  static_assert(process_counts_size == std::size_t{2});
+  const auto process_counts =
+      process_counts_t{child_producer_count, child_consumer_count};
   process_info info;
-  consumer_count = producer_count = 0;
+  info.is_child = true;
+  std::size_t i{0};
+  assert(info.is_producer == false);
 
-  for (std::size_t i{0}; i < create_process_count; ++i)
+  for (std::size_t c{0}; c < process_counts.size(); ++c)
   {
-    const auto process_created = unix::create_process();
+    info.is_producer = c;
 
-    if (!process_created)
+    for (i = 0; i < process_counts[c]; ++i)
     {
-      std::println("failed to create child process due to: {}",
-                   unix::to_string(process_created.error()).data());
-      continue;
-    }
-    info.created_process_count++;
-    info.is_producer = (((i + 1) % producer_frequenecy) == 0);
+      const auto process_created = unix::create_process();
 
-    if (info.is_producer)
-    {
-      info.group_id = producer_count++;
-    }
-    else
-    {
-      info.group_id = consumer_count++;
-    }
+      if (!process_created)
+      {
+        std::println("failed to create child process due to: {}",
+                     unix::to_string(process_created.error()).data());
+        break;
+      }
+      info.created_process_count++;
 
-    if (!unix::is_child_process(process_created.value()))
-    {
-      std::println("created child process with id: {}",
-                   process_created.value());
-    }
-    else
-    {
-      info.is_child = true;
-      return info;
+      if (!unix::is_child_process(process_created.value()))
+      {
+        std::println("created child process with id: {}",
+                     process_created.value());
+      }
+      else
+      {
+        return info;
+      }
     }
   }
+  info.is_child = false;
   info.is_producer = true;
-  info.group_id = producer_count++;
+  info.group_id = i;
   return info;
 }
 
@@ -296,10 +287,9 @@ void *adavance_pointer(void *ptr, std::size_t byte_count) noexcept
 
 bool wait_till_production_complete(
     std::size_t producer_count,
-    unix::system_v::ipc::semaphore_set &semaphores) noexcept
+    const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
-  const auto production_stopped = semaphores.decrease_value(
-      producter_sem_index, -static_cast<int>(producer_count));
+  const auto production_stopped = producers_notifier.wait_for_all();
 
   if (!production_stopped)
   {
@@ -311,13 +301,12 @@ bool wait_till_production_complete(
   return true;
 }
 
-bool stop_consumption(std::size_t consumer_count,
-                      unix::system_v::ipc::semaphore_set &semaphores,
-                      std::atomic<bool> &done_flag) noexcept
+bool stop_consumption(
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    std::atomic<bool> &done_flag) noexcept
 {
   done_flag.store(true);
-  const auto stop_consumption =
-      semaphores.increase_value(written_message_sem_index, consumer_count);
+  const auto stop_consumption = message_written_notifier.notify_all();
 
   if (!stop_consumption)
   {
@@ -328,11 +317,10 @@ bool stop_consumption(std::size_t consumer_count,
   return true;
 }
 
-bool start_production(std::size_t producer_count,
-                      unix::system_v::ipc::semaphore_set &semaphores) noexcept
+bool start_production(
+    const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
-  const auto start_production =
-      semaphores.increase_value(producter_sem_index, producer_count);
+  const auto start_production = producers_notifier.notify_all();
 
   if (!start_production)
   {
@@ -352,8 +340,14 @@ int main(int, char **)
 {
   using namespace unix::system_v;
 
+  constexpr std::size_t semaphore_count{4}, readiness_sem_index{0},
+      written_message_sem_index{1}, read_message_sem_index{2},
+      producer_sem_index{3};
   constexpr std::size_t mem_size{sizeof(shared_data)}, create_process_count{10},
-      message_count{200};
+      message_count{200}, child_producer_count{2}, child_consumer_count{10},
+      producer_count{child_producer_count + 1},
+      consumer_count{child_consumer_count},
+      children_count{child_producer_count + child_consumer_count};
   constexpr std::size_t producer_frequenecy{5};
   static_assert(create_process_count >= producer_frequenecy);
 
@@ -393,6 +387,15 @@ int main(int, char **)
   auto &semaphores = semaphore_created.value();
   resource_remover_t<ipc::semaphore_set> semaphore_remover{&semaphores};
 
+  const auto message_written_notifier = unix::system_v::ipc::group_notifier{
+      semaphores, written_message_sem_index, consumer_count};
+  const auto message_read_notifier = unix::system_v::ipc::group_notifier{
+      semaphores, read_message_sem_index, producer_count};
+  const auto children_readiness_notifier = unix::system_v::ipc::group_notifier{
+      semaphores, readiness_sem_index, children_count};
+  const auto producers_notifier = unix::system_v::ipc::group_notifier{
+      semaphores, producer_sem_index, producer_count};
+
   std::array<unsigned short, semaphore_count> init_values = {
       0, 0, message_queue_t::capacity(), 0};
   const auto semaphore_initialized = semaphores.set_values(init_values);
@@ -403,11 +406,8 @@ int main(int, char **)
     return EXIT_FAILURE;
   }
   std::println("semaphores initialized");
-
-  std::size_t producer_count{0}, consumer_count{0};
   const auto info =
-      create_child_processes(producer_count, consumer_count,
-                             create_process_count, producer_frequenecy);
+      create_child_processes(child_producer_count, child_consumer_count);
 
   if (!info.is_child)
   {
@@ -445,7 +445,7 @@ int main(int, char **)
 
   if (info.is_child)
   {
-    if (!signal_readiness_to_parent(semaphores))
+    if (!signal_readiness_to_parent(children_readiness_notifier))
     {
       return EXIT_FAILURE;
     }
@@ -455,14 +455,14 @@ int main(int, char **)
   {
     std::println("wait till all children process are ready");
 
-    if (!wait_till_all_children_ready(info.created_process_count, semaphores))
+    if (!wait_till_all_children_ready(info.created_process_count, children_readiness_notifier))
     {
       return EXIT_FAILURE;
     }
     std::println("all child processes are ready");
     std::println("start message production");
 
-    if (!start_production(producer_count, semaphores))
+    if (!start_production(producers_notifier))
     {
       return EXIT_FAILURE;
     }
@@ -473,22 +473,22 @@ int main(int, char **)
   {
     std::println("wait till production start");
 
-    if (!wait_till_production_start(semaphores))
+    if (!wait_till_production_start(producers_notifier))
     {
       return EXIT_FAILURE;
     }
     std::println("production started");
     std::println("produce messages");
 
-    if (!produce_messages(info, message_count, semaphores,
-                          data->message_queue))
+    if (!produce_messages(info, message_count, message_read_notifier,
+                          message_written_notifier, data->message_queue))
     {
       return EXIT_FAILURE;
     }
     std::println("message production done");
     std::println("notify about production completion");
 
-    if (!notify_about_production_completion(semaphores))
+    if (!notify_about_production_completion(producers_notifier))
     {
       return EXIT_FAILURE;
     }
@@ -498,8 +498,8 @@ int main(int, char **)
   {
     std::println("consume messages");
 
-    if (!consume_messages(info, semaphores, data->message_queue, process_id,
-                          data->done_flag))
+    if (!consume_messages(info, message_written_notifier, message_read_notifier,
+                          data->message_queue, process_id, data->done_flag))
     {
       return EXIT_FAILURE;
     }
@@ -510,14 +510,14 @@ int main(int, char **)
   {
     std::println("wait for all production to complete");
 
-    if (!wait_till_production_complete(producer_count, semaphores))
+    if (!wait_till_production_complete(producer_count, producers_notifier))
     {
       return EXIT_FAILURE;
     }
     std::println("all producers done");
     std::println("stop message consumption");
 
-    if (!stop_consumption(consumer_count, semaphores, data->done_flag))
+    if (!stop_consumption(message_written_notifier, data->done_flag))
     {
       return EXIT_FAILURE;
     }

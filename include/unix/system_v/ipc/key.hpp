@@ -11,8 +11,6 @@
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
-#include <print>
-
 namespace unix::system_v::ipc
 {
     using key_t = ::key_t;
