@@ -491,6 +491,12 @@ bool finalize_parent_process(
   return true;
 }
 
+struct no_role
+{
+  bool setup() const noexcept { return true; }
+  bool finalize() noexcept { return true; }
+};
+
 class child
 {
 public:
@@ -511,12 +517,6 @@ private:
   unix::process_id_t process_id_;
   std::reference_wrapper<const unix::system_v::ipc::group_notifier>
       children_readiness_notifier_;
-};
-
-struct no_role
-{
-  bool setup() const noexcept { return true; }
-  bool finalize() noexcept { return true; }
 };
 
 class parent
@@ -830,7 +830,7 @@ int main(int, char **)
                           data->done_flag,
                           data->consumed_message_count};
   }
-  if (processor{role, occupation}.process())
+  if (!processor{role, occupation}.process())
   {
     return EXIT_FAILURE;
   }
