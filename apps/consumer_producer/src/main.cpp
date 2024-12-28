@@ -3,10 +3,8 @@
 #include <atomic>
 #include <cstdio>
 #include <functional>
-#include <memory>
 #include <print>
 #include <span>
-#include <string_view>
 #include <variant>
 
 #include "lock_free/ring_buffer.hpp"
@@ -24,31 +22,7 @@
 #include "buffering/processor.hpp"
 #include "buffering/process_creation.hpp"
 #include "buffering/role.hpp"
-
-template <string_literal ResourceName, class Resource>
-static void remove_resource(Resource *resource) noexcept
-{
-    const auto removed = resource->remove();
-    std::println("{} removed: {}", ResourceName.data(), removed.has_value());
-    assert(removed);
-}
-
-template <string_literal ResourceName, class Resource>
-static void destroy_resource(Resource *resource) noexcept
-{
-    resource->~Resource();
-    std::println("{} destroyed", ResourceName.data());
-}
-
-template <string_literal ResourceName, class Resource>
-using resource_remover_t =
-    std::unique_ptr<Resource,
-                    unix::deleter<remove_resource<ResourceName, Resource>>>;
-
-template <string_literal ResourceName, class Resource>
-using resource_destroyer_t =
-    std::unique_ptr<Resource,
-                    unix::deleter<destroy_resource<ResourceName, Resource>>>;
+#include "buffering/resource_releaser.hpp"
 
 struct shared_data
 {
@@ -95,7 +69,7 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    resource_remover_t<string_literal{"shared memory"}, ipc::shared_memory>
+    buffering::resource_remover_t<string_literal{"shared memory"}, ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
     auto semaphore_created =
@@ -108,7 +82,7 @@ int main(int, char **)
     }
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
-    resource_remover_t<string_literal{"semaphore set"}, ipc::semaphore_set>
+    buffering::resource_remover_t<string_literal{"semaphore set"}, ipc::semaphore_set>
         semaphore_remover{&semaphores};
 
     const auto message_written_notifier = unix::system_v::ipc::group_notifier{
@@ -163,7 +137,7 @@ int main(int, char **)
     std::println("attached to shared memory");
 
     auto *data = new (memory.get()) shared_data{};
-    resource_destroyer_t<string_literal{"data"}, shared_data> data_destroyer{
+    buffering::resource_destroyer_t<string_literal{"data"}, shared_data> data_destroyer{
         data};
 
     if (info.is_child)
