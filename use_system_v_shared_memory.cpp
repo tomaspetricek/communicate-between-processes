@@ -7,8 +7,8 @@
 #include <span>
 #include <string_view>
 
-#include "string_literal.hpp"
 #include "lock_free/ring_buffer.hpp"
+#include "string_literal.hpp"
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
@@ -358,6 +358,137 @@ struct shared_data
   message_queue_t message_queue;
 };
 
+bool run_producer(
+    const process_info &info, std::size_t message_count,
+    const unix::system_v::ipc::group_notifier &producers_notifier,
+    const unix::system_v::ipc::group_notifier &message_read_notifier,
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    message_queue_t &message_queue,
+    std::atomic<std::int32_t> &produced_message_count) noexcept
+{
+  std::println("wait till production start");
+
+  if (!wait_till_production_start(producers_notifier))
+  {
+    return EXIT_FAILURE;
+  }
+  std::println("production started");
+  std::println("produce messages");
+
+  if (!produce_messages(info, message_count, message_read_notifier,
+                        message_written_notifier, message_queue,
+                        produced_message_count))
+  {
+    return false;
+  }
+  std::println("message production done");
+  std::println("notify about production completion");
+
+  if (!notify_about_production_completion(producers_notifier))
+  {
+    return false;
+  }
+  std::println("notified about production completion");
+  return true;
+}
+
+bool run_consumer(
+    const process_info &info, unix::process_id_t process_id,
+    const unix::system_v::ipc::group_notifier &message_read_notifier,
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    message_queue_t &message_queue, std::atomic<bool> &done_flag,
+    std::atomic<std::int32_t> &consumed_message_count)
+{
+  std::println("consume messages");
+
+  if (!consume_messages(info, message_written_notifier, message_read_notifier,
+                        message_queue, process_id, done_flag,
+                        consumed_message_count))
+  {
+    return false;
+  }
+  std::println("message consumption done");
+  return true;
+}
+
+bool setup_child_process(unix::process_id_t process_id,
+                         const unix::system_v::ipc::group_notifier
+                             &children_readiness_notifier) noexcept
+{
+  if (!signal_readiness_to_parent(children_readiness_notifier))
+  {
+    return false;
+  }
+  std::println("child process with id: {} is ready", process_id);
+  return true;
+}
+
+bool setup_parent_process(
+    const process_info &info,
+    const unix::system_v::ipc::group_notifier &children_readiness_notifier,
+    const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+{
+  std::println("wait till all children process are ready");
+
+  if (!wait_till_all_children_ready(info.created_process_count,
+                                    children_readiness_notifier))
+  {
+    return false;
+  }
+  std::println("all child processes are ready");
+  std::println("start message production");
+
+  if (!start_production(producers_notifier))
+  {
+    return false;
+  }
+  std::println("message production started");
+  return true;
+}
+
+bool finalize_parent_process(
+    const unix::system_v::ipc::group_notifier &producers_notifier,
+    const unix::system_v::ipc::group_notifier &message_written_notifier,
+    std::atomic<std::int32_t> &consumed_message_count,
+    std::atomic<std::int32_t> &produced_message_count,
+    std::atomic<bool> &done_flag) noexcept
+{
+  std::println("wait for all production to complete");
+
+  if (!wait_till_production_complete(producers_notifier))
+  {
+    return EXIT_FAILURE;
+  }
+  std::println("all producers done");
+  std::println("wait till all messages consumed");
+
+  if (!wait_till_all_messages_consumed(message_written_notifier))
+  {
+    return EXIT_FAILURE;
+  }
+  std::println("all messages consumed");
+  std::println("consumed message count: {}",
+               consumed_message_count.load(std::memory_order_relaxed));
+  std::println("produced message count: {}",
+               produced_message_count.load(std::memory_order_relaxed));
+  assert(consumed_message_count.load() == produced_message_count.load());
+  std::println("stop message consumption");
+
+  if (!stop_consumption(message_written_notifier, done_flag))
+  {
+    return false;
+  }
+  std::println("message consumption stopped");
+  std::println("wait for all children to terminate");
+
+  if (!wait_till_all_children_termninate())
+  {
+    return false;
+  }
+  std::println("all done");
+  return true;
+}
+
 int main(int, char **)
 {
   using namespace unix::system_v;
@@ -474,106 +605,48 @@ int main(int, char **)
 
   if (info.is_child)
   {
-    if (!signal_readiness_to_parent(children_readiness_notifier))
+    if (!setup_child_process(process_id, children_readiness_notifier))
     {
       return EXIT_FAILURE;
     }
-    std::println("child process with id: {} is ready", process_id);
   }
   else
   {
-    std::println("wait till all children process are ready");
-
-    if (!wait_till_all_children_ready(info.created_process_count,
-                                      children_readiness_notifier))
+    if (!setup_parent_process(info, children_readiness_notifier,
+                              producers_notifier))
     {
       return EXIT_FAILURE;
     }
-    std::println("all child processes are ready");
-    std::println("start message production");
-
-    if (!start_production(producers_notifier))
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("message production started");
   }
 
   if (info.is_producer)
   {
-    std::println("wait till production start");
-
-    if (!wait_till_production_start(producers_notifier))
+    if (!run_producer(info, message_count, producers_notifier,
+                      message_read_notifier, message_written_notifier,
+                      data->message_queue, data->produced_message_count))
     {
       return EXIT_FAILURE;
     }
-    std::println("production started");
-    std::println("produce messages");
-
-    if (!produce_messages(info, message_count, message_read_notifier,
-                          message_written_notifier, data->message_queue,
-                          data->produced_message_count))
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("message production done");
-    std::println("notify about production completion");
-
-    if (!notify_about_production_completion(producers_notifier))
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("notified about production completion");
   }
   else
   {
-    std::println("consume messages");
-
-    if (!consume_messages(info, message_written_notifier, message_read_notifier,
-                          data->message_queue, process_id, data->done_flag,
-                          data->consumed_message_count))
+    if (!run_consumer(info, process_id, message_read_notifier,
+                      message_written_notifier, data->message_queue,
+                      data->done_flag, data->consumed_message_count))
     {
       return EXIT_FAILURE;
     }
-    std::println("message consumption done");
   }
 
   if (!info.is_child)
   {
-    std::println("wait for all production to complete");
-
-    if (!wait_till_production_complete(producers_notifier))
+    if (!finalize_parent_process(producers_notifier, message_written_notifier,
+                                 data->consumed_message_count,
+                                 data->produced_message_count,
+                                 data->done_flag))
     {
       return EXIT_FAILURE;
     }
-    std::println("all producers done");
-    std::println("wait till all messages consumed");
-
-    if (!wait_till_all_messages_consumed(message_written_notifier))
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("all messages consumed");
-    std::println("consumed message count: {}",
-                 data->consumed_message_count.load());
-    std::println("produced message count: {}",
-                 data->produced_message_count.load());
-    assert(data->consumed_message_count.load() ==
-           data->produced_message_count.load());
-    std::println("stop message consumption");
-
-    if (!stop_consumption(message_written_notifier, data->done_flag))
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("message consumption stopped");
-    std::println("wait for all children to terminate");
-
-    if (!wait_till_all_children_termninate())
-    {
-      return EXIT_FAILURE;
-    }
-    std::println("all done");
   }
   return EXIT_SUCCESS;
 }
