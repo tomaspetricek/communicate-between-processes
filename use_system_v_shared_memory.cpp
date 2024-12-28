@@ -458,6 +458,12 @@ int main(int, char **)
   std::println("attached to shared memory");
 
   auto *data = new (memory.get()) shared_data{};
+  resource_destroyer_t<shared_data> data_destroyer{data};
+
+  if (info.is_child)
+  {
+    data_destroyer.release();
+  }
   const auto process_id = unix::get_process_id();
 
   if (info.is_child)
