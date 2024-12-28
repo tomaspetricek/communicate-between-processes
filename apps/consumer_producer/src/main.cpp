@@ -31,14 +31,14 @@ int main(int, char **)
 
     constexpr std::size_t semaphore_count{4}, readiness_sem_index{0},
         written_message_sem_index{1}, read_message_sem_index{2},
-        producer_sem_index{3};
-    constexpr std::size_t mem_size{sizeof(buffering::shared_data)},
+        producer_sem_index{3}, mem_size{sizeof(buffering::shared_data)},
         create_process_count{10}, message_count{200}, child_producer_count{2},
         child_consumer_count{10}, producer_count{child_producer_count + 1},
         consumer_count{child_consumer_count},
         children_count{child_producer_count + child_consumer_count};
-    constexpr std::size_t producer_frequenecy{5};
-    static_assert(create_process_count >= producer_frequenecy);
+    static_assert(create_process_count > std::size_t{1});
+    static_assert(producer_count > std::size_t{0});
+    static_assert(consumer_count > std::size_t{0});
 
     constexpr auto perms = unix::permissions_builder{}
                                .owner_can_read()
