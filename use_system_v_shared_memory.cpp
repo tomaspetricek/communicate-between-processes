@@ -7,6 +7,7 @@
 #include <span>
 #include <string_view>
 
+#include "string_literal.hpp"
 #include "lock_free/ring_buffer.hpp"
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
@@ -16,28 +17,30 @@
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
-template <class Resource>
+template <string_literal ResourceName, class Resource>
 static void remove_resource(Resource *resource) noexcept
 {
   const auto removed = resource->remove();
-  std::println("resource removed: {}", removed.has_value());
+  std::println("{} removed: {}", ResourceName.data(), removed.has_value());
   assert(removed);
 }
 
-template <class Resource>
+template <string_literal ResourceName, class Resource>
 static void destroy_resource(Resource *resource) noexcept
 {
   resource->~Resource();
-  std::println("resource destroyed");
+  std::println("{} destroyed", ResourceName.data());
 }
 
-template <class Resource>
+template <string_literal ResourceName, class Resource>
 using resource_remover_t =
-    std::unique_ptr<Resource, unix::deleter<remove_resource<Resource>>>;
+    std::unique_ptr<Resource,
+                    unix::deleter<remove_resource<ResourceName, Resource>>>;
 
-template <class Resource>
+template <string_literal ResourceName, class Resource>
 using resource_destroyer_t =
-    std::unique_ptr<Resource, unix::deleter<destroy_resource<Resource>>>;
+    std::unique_ptr<Resource,
+                    unix::deleter<destroy_resource<ResourceName, Resource>>>;
 
 constexpr std::size_t message_capacity = 256;
 constexpr std::size_t message_queue_capacity = 32;
@@ -392,7 +395,8 @@ int main(int, char **)
   }
   std::println("shared memory created");
   auto &shared_memory = shared_memory_created.value();
-  resource_remover_t<ipc::shared_memory> shared_memory_remover{&shared_memory};
+  resource_remover_t<string_literal{"shared memory"}, ipc::shared_memory>
+      shared_memory_remover{&shared_memory};
 
   auto semaphore_created =
       ipc::semaphore_set::create_private(semaphore_count, perms);
@@ -404,7 +408,8 @@ int main(int, char **)
   }
   std::println("semaphores created");
   auto &semaphores = semaphore_created.value();
-  resource_remover_t<ipc::semaphore_set> semaphore_remover{&semaphores};
+  resource_remover_t<string_literal{"semaphore set"}, ipc::semaphore_set>
+      semaphore_remover{&semaphores};
 
   const auto message_written_notifier = unix::system_v::ipc::group_notifier{
       semaphores, written_message_sem_index, consumer_count};
@@ -458,7 +463,8 @@ int main(int, char **)
   std::println("attached to shared memory");
 
   auto *data = new (memory.get()) shared_data{};
-  resource_destroyer_t<shared_data> data_destroyer{data};
+  resource_destroyer_t<string_literal{"data"}, shared_data> data_destroyer{
+      data};
 
   if (info.is_child)
   {
