@@ -2,10 +2,12 @@
 #include <array>
 #include <atomic>
 #include <cstdio>
+#include <functional>
 #include <memory>
 #include <print>
 #include <span>
 #include <string_view>
+#include <variant>
 
 #include "lock_free/ring_buffer.hpp"
 #include "string_literal.hpp"
@@ -449,8 +451,8 @@ bool setup_parent_process(
 bool finalize_parent_process(
     const unix::system_v::ipc::group_notifier &producers_notifier,
     const unix::system_v::ipc::group_notifier &message_written_notifier,
-    std::atomic<std::int32_t> &consumed_message_count,
-    std::atomic<std::int32_t> &produced_message_count,
+    const std::atomic<std::int32_t> &consumed_message_count,
+    const std::atomic<std::int32_t> &produced_message_count,
     std::atomic<bool> &done_flag) noexcept
 {
   std::println("wait for all production to complete");
@@ -488,6 +490,193 @@ bool finalize_parent_process(
   std::println("all done");
   return true;
 }
+
+class child
+{
+public:
+  explicit child(unix::process_id_t process_id,
+                 const unix::system_v::ipc::group_notifier
+                     &children_readiness_notifier) noexcept
+      : process_id_{process_id},
+        children_readiness_notifier_{std::cref(children_readiness_notifier)} {}
+
+  bool setup() const noexcept
+  {
+    return setup_child_process(process_id_, children_readiness_notifier_);
+  }
+
+  bool finalize() const noexcept { return true; }
+
+private:
+  unix::process_id_t process_id_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      children_readiness_notifier_;
+};
+
+struct no_role
+{
+  bool setup() const noexcept { return true; }
+  bool finalize() noexcept { return true; }
+};
+
+class parent
+{
+public:
+  explicit parent(
+      const process_info &info,
+      const unix::system_v::ipc::group_notifier &children_readiness_notifier,
+      const unix::system_v::ipc::group_notifier &producers_notifier,
+      const unix::system_v::ipc::group_notifier &message_written_notifier,
+      const std::atomic<std::int32_t> &consumed_message_count,
+      const std::atomic<std::int32_t> &produced_message_count,
+      std::atomic<bool> &done_flag) noexcept
+      : info_{info},
+        children_readiness_notifier_{std::cref(children_readiness_notifier)},
+        producers_notifier_{std::cref(producers_notifier)},
+        message_written_notifier_{std::cref(message_written_notifier)},
+        consumed_message_count_{std::cref(consumed_message_count)},
+        produced_message_count_{std::cref(produced_message_count)},
+        done_flag_{std::ref(done_flag)} {}
+
+  bool setup() const noexcept
+  {
+    return setup_parent_process(info_, children_readiness_notifier_,
+                                producers_notifier_);
+  }
+
+  bool finalize() noexcept
+  {
+    return finalize_parent_process(
+        producers_notifier_, message_written_notifier_, consumed_message_count_,
+        produced_message_count_, done_flag_);
+  }
+
+private:
+  process_info info_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      children_readiness_notifier_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      producers_notifier_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      message_written_notifier_;
+  std::reference_wrapper<const std::atomic<std::int32_t>>
+      consumed_message_count_;
+  std::reference_wrapper<const std::atomic<std::int32_t>>
+      produced_message_count_;
+  std::reference_wrapper<std::atomic<bool>> done_flag_;
+};
+
+using social_role_t = std::variant<no_role, child, parent>;
+
+struct no_occupation
+{
+  bool run() noexcept { return true; }
+};
+
+class producer
+{
+public:
+  explicit producer(
+      const process_info &info, std::size_t message_count,
+      const unix::system_v::ipc::group_notifier &producers_notifier,
+      const unix::system_v::ipc::group_notifier &message_read_notifier,
+      const unix::system_v::ipc::group_notifier &message_written_notifier,
+      message_queue_t &message_queue,
+      std::atomic<std::int32_t> &produced_message_count) noexcept
+      : info_{info}, message_count_{message_count},
+        producers_notifier_{producers_notifier},
+        message_read_notifier_{message_read_notifier},
+        message_written_notifier_{message_written_notifier},
+        message_queue_{message_queue},
+        produced_message_count_{produced_message_count} {}
+
+  bool run() noexcept
+  {
+    return run_producer(info_, message_count_, producers_notifier_,
+                        message_read_notifier_, message_written_notifier_,
+                        message_queue_, produced_message_count_);
+  }
+
+private:
+  process_info info_;
+  std::size_t message_count_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      producers_notifier_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      message_read_notifier_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      message_written_notifier_;
+  std::reference_wrapper<message_queue_t> message_queue_;
+  std::reference_wrapper<std::atomic<std::int32_t>> produced_message_count_;
+};
+
+class consumer
+{
+public:
+  explicit consumer(
+      const process_info &info, unix::process_id_t process_id,
+      const unix::system_v::ipc::group_notifier &message_read_notifier,
+      const unix::system_v::ipc::group_notifier &message_written_notifier,
+      message_queue_t &message_queue, std::atomic<bool> &done_flag,
+      std::atomic<std::int32_t> &consumed_message_count) noexcept
+      : info_{info}, process_id_{process_id},
+        message_read_notifier_{message_read_notifier},
+        message_written_notifier_{message_written_notifier},
+        message_queue_{message_queue}, done_flag_{done_flag},
+        consumed_message_count_{consumed_message_count} {}
+
+  bool run() noexcept
+  {
+    return run_consumer(info_, process_id_, message_read_notifier_,
+                        message_written_notifier_, message_queue_, done_flag_,
+                        consumed_message_count_);
+  }
+
+private:
+  process_info info_;
+  unix::process_id_t process_id_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      message_read_notifier_;
+  std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+      message_written_notifier_;
+  std::reference_wrapper<message_queue_t> message_queue_;
+  std::reference_wrapper<std::atomic<bool>> done_flag_;
+  std::reference_wrapper<std::atomic<std::int32_t>> consumed_message_count_;
+};
+
+using occupation_t = std::variant<no_occupation, producer, consumer>;
+
+class processor
+{
+public:
+  explicit processor(const social_role_t &role,
+                     const occupation_t &occupation) noexcept
+      : role_{role}, occupation_{occupation} {}
+
+  bool process() noexcept
+  {
+    if (!std::visit([](const auto &r)
+                    { return r.setup(); }, role_))
+    {
+      return false;
+    }
+    if (!std::visit([](auto &o)
+                    { return o.run(); }, occupation_))
+    {
+      return false;
+    }
+    if (!std::visit([](auto &r)
+                    { return r.finalize(); }, role_))
+    {
+      return false;
+    }
+    return true;
+  }
+
+private:
+  social_role_t role_;
+  occupation_t occupation_;
+};
 
 int main(int, char **)
 {
@@ -603,50 +792,47 @@ int main(int, char **)
   }
   const auto process_id = unix::get_process_id();
 
+  social_role_t role;
+
   if (info.is_child)
   {
-    if (!setup_child_process(process_id, children_readiness_notifier))
-    {
-      return EXIT_FAILURE;
-    }
+    role = child{process_id, children_readiness_notifier};
   }
   else
   {
-    if (!setup_parent_process(info, children_readiness_notifier,
-                              producers_notifier))
-    {
-      return EXIT_FAILURE;
-    }
+    role = parent{info,
+                  children_readiness_notifier,
+                  producers_notifier,
+                  message_written_notifier,
+                  data->consumed_message_count,
+                  data->produced_message_count,
+                  data->done_flag};
   }
+  occupation_t occupation;
 
   if (info.is_producer)
   {
-    if (!run_producer(info, message_count, producers_notifier,
-                      message_read_notifier, message_written_notifier,
-                      data->message_queue, data->produced_message_count))
-    {
-      return EXIT_FAILURE;
-    }
+    occupation = producer{info,
+                          message_count,
+                          producers_notifier,
+                          message_read_notifier,
+                          message_written_notifier,
+                          data->message_queue,
+                          data->produced_message_count};
   }
   else
   {
-    if (!run_consumer(info, process_id, message_read_notifier,
-                      message_written_notifier, data->message_queue,
-                      data->done_flag, data->consumed_message_count))
-    {
-      return EXIT_FAILURE;
-    }
+    occupation = consumer{info,
+                          process_id,
+                          message_read_notifier,
+                          message_written_notifier,
+                          data->message_queue,
+                          data->done_flag,
+                          data->consumed_message_count};
   }
-
-  if (!info.is_child)
+  if (processor{role, occupation}.process())
   {
-    if (!finalize_parent_process(producers_notifier, message_written_notifier,
-                                 data->consumed_message_count,
-                                 data->produced_message_count,
-                                 data->done_flag))
-    {
-      return EXIT_FAILURE;
-    }
+    return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
 }
