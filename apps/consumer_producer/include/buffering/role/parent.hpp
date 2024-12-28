@@ -1,5 +1,5 @@
-#ifndef ROLE_PARENT_HPP
-#define ROLE_PARENT_HPP
+#ifndef BUFFERING_ROLE_PARENT_HPP
+#define BUFFERING_ROLE_PARENT_HPP
 
 #include <atomic>
 #include <functional>
@@ -10,11 +10,11 @@
 #include "unix/process.hpp"
 #include "unix/error_code.hpp"
 
-#include "process_info.hpp"
+#include "buffering/process_info.hpp"
 
-namespace role
+namespace buffering::role
 {
-        bool wait_till_all_children_termninate() noexcept
+    bool wait_till_all_children_termninate() noexcept
     {
         int status;
 
@@ -67,7 +67,7 @@ namespace role
         return true;
     }
 
-        bool wait_till_all_messages_consumed(const unix::system_v::ipc::group_notifier
+    bool wait_till_all_messages_consumed(const unix::system_v::ipc::group_notifier
                                              &message_written_notifier) noexcept
     {
         const auto all_consumed = message_written_notifier.wait_till_none();
@@ -81,7 +81,7 @@ namespace role
         return true;
     }
 
-        bool wait_till_production_complete(
+    bool wait_till_production_complete(
         const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
     {
         const auto production_stopped = producers_notifier.wait_for_all();
@@ -96,7 +96,7 @@ namespace role
         return true;
     }
 
-        bool finalize_parent_process(
+    bool finalize_parent_process(
         const unix::system_v::ipc::group_notifier &producers_notifier,
         const unix::system_v::ipc::group_notifier &message_written_notifier,
         const std::atomic<std::int32_t> &consumed_message_count,
@@ -241,4 +241,4 @@ namespace role
     };
 }
 
-#endif // ROLE_PARENT_HPP
+#endif // BUFFERING_ROLE_PARENT_HPP

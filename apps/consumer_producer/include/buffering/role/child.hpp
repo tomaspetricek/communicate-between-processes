@@ -1,12 +1,13 @@
-#ifndef ROLE_CHILD_HPP
-#define ROLE_CHILD_HPP
+#ifndef BUFFERING_ROLE_CHILD_HPP
+#define BUFFERING_ROLE_CHILD_HPP
 
 #include <functional>
+#include <print>
 
 #include "unix/process.hpp"
 #include "unix/system_v/ipc/group_notifier.hpp"
 
-namespace role
+namespace buffering::role
 {
     bool signal_readiness_to_parent(const unix::system_v::ipc::group_notifier
                                         &children_readiness_notifier) noexcept
@@ -57,4 +58,4 @@ namespace role
     };
 }
 
-#endif // ROLE_CHILD_HPP
+#endif // BUFFERING_ROLE_CHILD_HPP

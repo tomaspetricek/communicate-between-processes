@@ -1,9 +1,9 @@
-#ifndef PROCESS_INFO_HPP
-#define PROCESS_INFO_HPP
+#ifndef BUFFERING_PROCESS_INFO_HPP
+#define BUFFERING_PROCESS_INFO_HPP
 
 #include <cstddef>
 
-namespace
+namespace buffering
 {
     struct process_info
     {
@@ -12,6 +12,6 @@ namespace
         bool is_producer{false};
         std::size_t group_id{0};
     };
-} // namespace
+}
 
-#endif // PROCESS_INFO_HPP
+#endif // BUFFERING_PROCESS_INFO_HPP

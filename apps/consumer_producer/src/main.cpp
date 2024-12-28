@@ -18,10 +18,10 @@
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
-#include "message_queue.hpp"
-#include "occupation.hpp"
-#include "process_info.hpp"
-#include "role.hpp"
+#include "buffering/message_queue.hpp"
+#include "buffering/occupation.hpp"
+#include "buffering/process_info.hpp"
+#include "buffering/role.hpp"
 
 template <string_literal ResourceName, class Resource>
 static void remove_resource(Resource *resource) noexcept
@@ -48,15 +48,15 @@ using resource_destroyer_t =
     std::unique_ptr<Resource,
                     unix::deleter<destroy_resource<ResourceName, Resource>>>;
 
-process_info create_child_processes(std::size_t child_producer_count,
-                                    std::size_t child_consumer_count) noexcept
+buffering::process_info create_child_processes(std::size_t child_producer_count,
+                                               std::size_t child_consumer_count) noexcept
 {
     constexpr std::size_t process_counts_size{2};
     using process_counts_t = std::array<std::size_t, process_counts_size>;
     static_assert(process_counts_size == std::size_t{2});
     const auto process_counts =
         process_counts_t{child_producer_count, child_consumer_count};
-    process_info info;
+    buffering::process_info info;
     info.is_child = true;
     std::size_t i{0};
     assert(info.is_producer == false);
@@ -99,14 +99,14 @@ struct shared_data
     std::atomic<bool> done_flag{false};
     std::atomic<std::int32_t> produced_message_count{0};
     std::atomic<std::int32_t> consumed_message_count{0};
-    message_queue_t message_queue;
+    buffering::message_queue_t message_queue;
 };
 
 class processor
 {
 public:
-    explicit processor(const social_role_t &role,
-                       const occupation_t &occupation) noexcept
+    explicit processor(const buffering::role_t &role,
+                       const buffering::occupation_t &occupation) noexcept
         : role_{role}, occupation_{occupation} {}
 
     bool process() noexcept
@@ -130,8 +130,8 @@ public:
     }
 
 private:
-    social_role_t role_;
-    occupation_t occupation_;
+    buffering::role_t role_;
+    buffering::occupation_t occupation_;
 };
 
 int main(int, char **)
@@ -197,7 +197,7 @@ int main(int, char **)
         semaphores, producer_sem_index, producer_count};
 
     std::array<unsigned short, semaphore_count> init_values = {
-        0, 0, message_queue_t::capacity(), 0};
+        0, 0, buffering::message_queue_t::capacity(), 0};
     const auto semaphore_initialized = semaphores.set_values(init_values);
 
     if (!semaphore_initialized)
@@ -248,43 +248,43 @@ int main(int, char **)
     }
     const auto process_id = unix::get_process_id();
 
-    social_role_t role;
+    buffering::role_t role;
 
     if (info.is_child)
     {
-        role = role::child{process_id, children_readiness_notifier};
+        role = buffering::role::child{process_id, children_readiness_notifier};
     }
     else
     {
-        role = role::parent{info,
-                            children_readiness_notifier,
-                            producers_notifier,
-                            message_written_notifier,
-                            data->consumed_message_count,
-                            data->produced_message_count,
-                            data->done_flag};
+        role = buffering::role::parent{info,
+                                       children_readiness_notifier,
+                                       producers_notifier,
+                                       message_written_notifier,
+                                       data->consumed_message_count,
+                                       data->produced_message_count,
+                                       data->done_flag};
     }
-    occupation_t occupation;
+    buffering::occupation_t occupation;
 
     if (info.is_producer)
     {
-        occupation = occupation::producer{info,
-                                          message_count,
-                                          producers_notifier,
-                                          message_read_notifier,
-                                          message_written_notifier,
-                                          data->message_queue,
-                                          data->produced_message_count};
+        occupation = buffering::occupation::producer{info,
+                                                     message_count,
+                                                     producers_notifier,
+                                                     message_read_notifier,
+                                                     message_written_notifier,
+                                                     data->message_queue,
+                                                     data->produced_message_count};
     }
     else
     {
-        occupation = occupation::consumer{info,
-                                          process_id,
-                                          message_read_notifier,
-                                          message_written_notifier,
-                                          data->message_queue,
-                                          data->done_flag,
-                                          data->consumed_message_count};
+        occupation = buffering::occupation::consumer{info,
+                                                     process_id,
+                                                     message_read_notifier,
+                                                     message_written_notifier,
+                                                     data->message_queue,
+                                                     data->done_flag,
+                                                     data->consumed_message_count};
     }
     if (!processor{role, occupation}.process())
     {

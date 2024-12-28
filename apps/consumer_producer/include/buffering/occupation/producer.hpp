@@ -1,5 +1,5 @@
-#ifndef OCCUPATION_PRODUCER_HPP
-#define OCCUPATION_PRODUCER_HPP
+#ifndef BUFFERING_OCCUPATION_PRODUCER_HPP
+#define BUFFERING_OCCUPATION_PRODUCER_HPP
 
 #include <atomic>
 #include <functional>
@@ -7,10 +7,10 @@
 #include "unix/system_v/ipc/group_notifier.hpp"
 #include "unix/process.hpp"
 
-#include "process_info.hpp"
-#include "message_queue.hpp"
+#include "buffering/process_info.hpp"
+#include "buffering/message_queue.hpp"
 
-namespace occupation
+namespace buffering::occupation
 {
     bool notify_about_production_completion(
         const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
@@ -157,4 +157,4 @@ namespace occupation
     };
 }
 
-#endif // OCCUPATION_PRODUCER_HPP
+#endif // BUFFERING_OCCUPATION_PRODUCER_HPP
