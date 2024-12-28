@@ -18,19 +18,12 @@
 
 #include "buffering/message_queue.hpp"
 #include "buffering/occupation.hpp"
+#include "buffering/process_creation.hpp"
 #include "buffering/process_info.hpp"
 #include "buffering/processor.hpp"
-#include "buffering/process_creation.hpp"
-#include "buffering/role.hpp"
 #include "buffering/resource_releaser.hpp"
-
-struct shared_data
-{
-    std::atomic<bool> done_flag{false};
-    std::atomic<std::int32_t> produced_message_count{0};
-    std::atomic<std::int32_t> consumed_message_count{0};
-    buffering::message_queue_t message_queue;
-};
+#include "buffering/role.hpp"
+#include "buffering/shared_data.hpp"
 
 int main(int, char **)
 {
@@ -39,9 +32,9 @@ int main(int, char **)
     constexpr std::size_t semaphore_count{4}, readiness_sem_index{0},
         written_message_sem_index{1}, read_message_sem_index{2},
         producer_sem_index{3};
-    constexpr std::size_t mem_size{sizeof(shared_data)}, create_process_count{10},
-        message_count{200}, child_producer_count{2}, child_consumer_count{10},
-        producer_count{child_producer_count + 1},
+    constexpr std::size_t mem_size{sizeof(buffering::shared_data)},
+        create_process_count{10}, message_count{200}, child_producer_count{2},
+        child_consumer_count{10}, producer_count{child_producer_count + 1},
         consumer_count{child_consumer_count},
         children_count{child_producer_count + child_consumer_count};
     constexpr std::size_t producer_frequenecy{5};
@@ -69,7 +62,8 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    buffering::resource_remover_t<string_literal{"shared memory"}, ipc::shared_memory>
+    buffering::resource_remover_t<string_literal{"shared memory"},
+                                  ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
     auto semaphore_created =
@@ -82,7 +76,8 @@ int main(int, char **)
     }
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
-    buffering::resource_remover_t<string_literal{"semaphore set"}, ipc::semaphore_set>
+    buffering::resource_remover_t<string_literal{"semaphore set"},
+                                  ipc::semaphore_set>
         semaphore_remover{&semaphores};
 
     const auto message_written_notifier = unix::system_v::ipc::group_notifier{
@@ -104,8 +99,8 @@ int main(int, char **)
         return EXIT_FAILURE;
     }
     std::println("semaphores initialized");
-    const auto info =
-        buffering::create_child_processes(child_producer_count, child_consumer_count);
+    const auto info = buffering::create_child_processes(child_producer_count,
+                                                        child_consumer_count);
 
     if (!info.is_child)
     {
@@ -136,9 +131,10 @@ int main(int, char **)
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
 
-    auto *data = new (memory.get()) shared_data{};
-    buffering::resource_destroyer_t<string_literal{"data"}, shared_data> data_destroyer{
-        data};
+    auto *data = new (memory.get()) buffering::shared_data{};
+    buffering::resource_destroyer_t<string_literal{"data"},
+                                    buffering::shared_data>
+        data_destroyer{data};
 
     if (info.is_child)
     {
