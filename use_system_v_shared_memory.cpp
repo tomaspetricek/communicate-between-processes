@@ -72,7 +72,8 @@ bool consume_messages(
     const unix::system_v::ipc::group_notifier &message_written_notifier,
     const unix::system_v::ipc::group_notifier &message_read_notifier,
     message_queue_t &message_queue, const unix::process_id_t &process_id,
-    const std::atomic<bool> &done_flag) noexcept
+    const std::atomic<bool> &done_flag,
+    std::atomic<std::int32_t> &consumed_message_count) noexcept
 {
   while (true)
   {
@@ -92,6 +93,7 @@ bool consume_messages(
       return false;
     }
     const auto message = message_queue.pop();
+    consumed_message_count++;
     std::println("received message: {} by child with id: {}", message.data(),
                  process_id);
     const auto message_read = message_read_notifier.notify_one();
@@ -153,7 +155,8 @@ bool produce_messages(
     const process_info &info, const std::size_t message_count,
     const unix::system_v::ipc::group_notifier &message_read_notifier,
     const unix::system_v::ipc::group_notifier &message_written_notifier,
-    message_queue_t &message_queue) noexcept
+    message_queue_t &message_queue,
+    std::atomic<std::int32_t> &produced_message_count) noexcept
 {
   message_t message;
 
@@ -169,6 +172,7 @@ bool produce_messages(
       return false;
     }
     message_queue.push(message);
+    produced_message_count++;
 
     std::println("message written into shared memeory by producer: {}",
                  info.group_id);
@@ -332,6 +336,8 @@ bool start_production(
 struct shared_data
 {
   std::atomic<bool> done_flag{false};
+  std::atomic<std::int32_t> produced_message_count{0};
+  std::atomic<std::int32_t> consumed_message_count{0};
   message_queue_t message_queue;
 };
 
@@ -437,7 +443,7 @@ int main(int, char **)
   auto &memory = memory_attached.value();
   std::println("attached to shared memory");
 
-  auto *data = reinterpret_cast<shared_data *>(memory.get());
+  auto *data = new (memory.get()) shared_data{};
   const auto process_id = unix::get_process_id();
 
   if (info.is_child)
@@ -452,7 +458,8 @@ int main(int, char **)
   {
     std::println("wait till all children process are ready");
 
-    if (!wait_till_all_children_ready(info.created_process_count, children_readiness_notifier))
+    if (!wait_till_all_children_ready(info.created_process_count,
+                                      children_readiness_notifier))
     {
       return EXIT_FAILURE;
     }
@@ -478,7 +485,8 @@ int main(int, char **)
     std::println("produce messages");
 
     if (!produce_messages(info, message_count, message_read_notifier,
-                          message_written_notifier, data->message_queue))
+                          message_written_notifier, data->message_queue,
+                          data->produced_message_count))
     {
       return EXIT_FAILURE;
     }
@@ -496,7 +504,8 @@ int main(int, char **)
     std::println("consume messages");
 
     if (!consume_messages(info, message_written_notifier, message_read_notifier,
-                          data->message_queue, process_id, data->done_flag))
+                          data->message_queue, process_id, data->done_flag,
+                          data->consumed_message_count))
     {
       return EXIT_FAILURE;
     }
@@ -519,6 +528,8 @@ int main(int, char **)
       return EXIT_FAILURE;
     }
     std::println("message consumption stopped");
+    std::println("consumed message count: {}", data->consumed_message_count.load());
+    std::println("produced message count: {}", data->produced_message_count.load());
     std::println("wait for all children to terminate");
 
     if (!wait_till_all_children_termninate())
