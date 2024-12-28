@@ -289,7 +289,6 @@ void *adavance_pointer(void *ptr, std::size_t byte_count) noexcept
 }
 
 bool wait_till_production_complete(
-    std::size_t producer_count,
     const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
 {
   const auto production_stopped = producers_notifier.wait_for_all();
@@ -327,7 +326,22 @@ bool start_production(
 
   if (!start_production)
   {
-    std::println("failed to send start signal to producers");
+    std::println("failed to send start signal to producers due to: {}",
+                 unix::to_string(start_production.error()).data());
+    return false;
+  }
+  return true;
+}
+
+bool wait_till_all_messages_consumed(const unix::system_v::ipc::group_notifier
+                                         &message_written_notifier) noexcept
+{
+  const auto all_consumed = message_written_notifier.wait_till_none();
+
+  if (!all_consumed)
+  {
+    std::println("failed waiting for all messages to be consumed due to: {}",
+                 unix::to_string(all_consumed.error()).data());
     return false;
   }
   return true;
@@ -516,11 +530,24 @@ int main(int, char **)
   {
     std::println("wait for all production to complete");
 
-    if (!wait_till_production_complete(producer_count, producers_notifier))
+    if (!wait_till_production_complete(producers_notifier))
     {
       return EXIT_FAILURE;
     }
     std::println("all producers done");
+    std::println("wait till all messages consumed");
+
+    if (!wait_till_all_messages_consumed(message_written_notifier))
+    {
+      return EXIT_FAILURE;
+    }
+    std::println("all messages consumed");
+    std::println("consumed message count: {}",
+                 data->consumed_message_count.load());
+    std::println("produced message count: {}",
+                 data->produced_message_count.load());
+    assert(data->consumed_message_count.load() ==
+           data->produced_message_count.load());
     std::println("stop message consumption");
 
     if (!stop_consumption(message_written_notifier, data->done_flag))
@@ -528,8 +555,6 @@ int main(int, char **)
       return EXIT_FAILURE;
     }
     std::println("message consumption stopped");
-    std::println("consumed message count: {}", data->consumed_message_count.load());
-    std::println("produced message count: {}", data->produced_message_count.load());
     std::println("wait for all children to terminate");
 
     if (!wait_till_all_children_termninate())

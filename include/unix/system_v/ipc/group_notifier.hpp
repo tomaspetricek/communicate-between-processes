@@ -43,6 +43,11 @@ namespace unix::system_v::ipc
             return semaphores_.increase_value(index_, group_size_);
         }
 
+        std::expected<void, error_code> wait_till_none() const noexcept
+        {
+            return semaphores_.change_value(index_, 0);
+        }
+
     private:
         semaphore_set &semaphores_;
         semaphore_index_t index_;
