@@ -21,6 +21,7 @@
 #include "buffering/message_queue.hpp"
 #include "buffering/occupation.hpp"
 #include "buffering/process_info.hpp"
+#include "buffering/processor.hpp"
 #include "buffering/role.hpp"
 
 template <string_literal ResourceName, class Resource>
@@ -100,38 +101,6 @@ struct shared_data
     std::atomic<std::int32_t> produced_message_count{0};
     std::atomic<std::int32_t> consumed_message_count{0};
     buffering::message_queue_t message_queue;
-};
-
-class processor
-{
-public:
-    explicit processor(const buffering::role_t &role,
-                       const buffering::occupation_t &occupation) noexcept
-        : role_{role}, occupation_{occupation} {}
-
-    bool process() noexcept
-    {
-        if (!std::visit([](const auto &r)
-                        { return r.setup(); }, role_))
-        {
-            return false;
-        }
-        if (!std::visit([](auto &o)
-                        { return o.run(); }, occupation_))
-        {
-            return false;
-        }
-        if (!std::visit([](auto &r)
-                        { return r.finalize(); }, role_))
-        {
-            return false;
-        }
-        return true;
-    }
-
-private:
-    buffering::role_t role_;
-    buffering::occupation_t occupation_;
 };
 
 int main(int, char **)
@@ -286,7 +255,7 @@ int main(int, char **)
                                                      data->done_flag,
                                                      data->consumed_message_count};
     }
-    if (!processor{role, occupation}.process())
+    if (!buffering::processor{role, occupation}.process())
     {
         return EXIT_FAILURE;
     }
