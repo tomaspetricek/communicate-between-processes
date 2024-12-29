@@ -11,6 +11,7 @@ add_subdirectory(libs/unix)
 
 # add applications
 add_subdirectory(apps/consumer_producer)
+add_subdirectory(apps/sleeping_barber_problem)
 
 add_executable(use_pipes use_pipes.cpp)
 target_link_libraries(use_pipes PRIVATE unix)
