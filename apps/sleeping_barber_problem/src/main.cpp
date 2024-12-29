@@ -3,7 +3,11 @@
 #include <print>
 #include <thread>
 
+#include "common/process.hpp"
+
+#include "core/random_integer_generator.hpp"
 #include "core/string_literal.hpp"
+
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
@@ -14,8 +18,6 @@
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
-#include "common/process.hpp"
-
 #include "lock_free/ring_buffer.hpp"
 
 using customer_t = std::int32_t;
@@ -23,13 +25,15 @@ constexpr std::size_t waiting_chair_count = 5;
 using customer_queue_t =
     lock_free::ring_buffer<customer_t, waiting_chair_count>;
 
-constexpr std::chrono::milliseconds haircut_duration{1'000};
+using get_sleeping_duration_t = std::chrono::milliseconds (*)();
 
+template <class GetSleepingDuration>
 bool serve_customer(
     const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
     const unix::system_v::ipc::group_notifier &empty_chair_notifier,
     customer_queue_t &customer_queue, const std::atomic<bool> &shop_closed,
-    std::atomic<std::int32_t> &served_customers) noexcept
+    std::atomic<std::int32_t> &served_customers,
+    GetSleepingDuration &get_haircut_duration) noexcept
 {
     while (true)
     {
@@ -49,7 +53,7 @@ bool serve_customer(
         }
         const auto customer = customer_queue.pop();
         std::println("trimming customer: {} hair", customer);
-        std::this_thread::sleep_for(haircut_duration);
+        std::this_thread::sleep_for(std::chrono::milliseconds{get_haircut_duration()});
         served_customers.fetch_add(1, std::memory_order_relaxed);
         const auto &empty_chair = empty_chair_notifier.notify_one();
 
@@ -63,18 +67,18 @@ bool serve_customer(
     return true;
 }
 
-constexpr std::chrono::milliseconds arrival_duration{1'500};
-
+template <class GetSleepingDuration>
 bool generate_customers(
     const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
     const unix::system_v::ipc::group_notifier &empty_chair_notifier,
     customer_queue_t &customer_queue, std::atomic<customer_t> &next_customer_id,
     const std::atomic<bool> &shop_closed,
-    std::atomic<std::int32_t> &refused_customers) noexcept
+    std::atomic<std::int32_t> &refused_customers,
+    GetSleepingDuration &get_customer_arrival_duration) noexcept
 {
     while (true)
     {
-        std::this_thread::sleep_for(arrival_duration);
+        std::this_thread::sleep_for(std::chrono::milliseconds{get_customer_arrival_duration()});
         const auto customer = next_customer_id++;
         const auto empty_chair = empty_chair_notifier.try_waiting_for_one();
 
@@ -183,7 +187,10 @@ int main(int, char **)
     constexpr std::size_t barber_count{1}, customer_generator_count{5},
         children_count{barber_count + customer_generator_count}, sem_count{3},
         child_readiness_sem_index{0}, empty_chair_sem_index{1},
-        customer_waiting_sem_index{2}, mem_size{sizeof(shared_data)};
+        customer_waiting_sem_index{2}, mem_size{sizeof(shared_data)},
+        min_haircut_duration{100}, max_haircut_duration{3 * min_haircut_duration},
+        min_customer_arrival_duration{200},
+        max_customer_arrival_duration{min_customer_arrival_duration * 10};
     constexpr std::chrono::milliseconds shop_open_duration{60'000};
 
     constexpr auto perms = unix::permissions_builder{}
@@ -297,26 +304,32 @@ int main(int, char **)
     {
         data_destroyer.release();
     }
+
     if (info.is_child)
     {
         if (info.is_barber)
         {
+            core::random_integer_generator<std::size_t> get_haircut_duration{
+                min_haircut_duration, max_haircut_duration};
             std::println("started serving customers");
 
             if (!serve_customer(customer_waiting_notifier, empty_chair_notifier,
                                 data->customer_queue, data->shop_closed,
-                                data->served_customers))
+                                data->served_customers, get_haircut_duration))
             {
                 return EXIT_FAILURE;
             }
         }
         else
         {
+            core::random_integer_generator<std::size_t> get_customer_arrival_duration{
+                min_customer_arrival_duration, max_customer_arrival_duration};
             std::println("started generating customers");
 
             if (!generate_customers(customer_waiting_notifier, empty_chair_notifier,
                                     data->customer_queue, data->next_customer_id,
-                                    data->shop_closed, data->refused_customers))
+                                    data->shop_closed, data->refused_customers,
+                                    get_customer_arrival_duration))
             {
                 return EXIT_FAILURE;
             }
