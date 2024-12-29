@@ -142,45 +142,13 @@ int main(int, char **)
     }
     const auto process_id = unix::get_process_id();
 
-    buffering::role_t role;
+    auto processor = create_processor(
+        info, process_id, message_count, message_written_notifier,
+        message_read_notifier, children_readiness_notifier, producers_notifier,
+        data->done_flag, data->produced_message_count,
+        data->consumed_message_count, data->message_queue);
 
-    if (info.is_child)
-    {
-        role = buffering::role::child{process_id, children_readiness_notifier};
-    }
-    else
-    {
-        role = buffering::role::parent{info,
-                                       children_readiness_notifier,
-                                       producers_notifier,
-                                       message_written_notifier,
-                                       data->consumed_message_count,
-                                       data->produced_message_count,
-                                       data->done_flag};
-    }
-    buffering::occupation_t occupation;
-
-    if (info.is_producer)
-    {
-        occupation = buffering::occupation::producer{info,
-                                                     message_count,
-                                                     producers_notifier,
-                                                     message_read_notifier,
-                                                     message_written_notifier,
-                                                     data->message_queue,
-                                                     data->produced_message_count};
-    }
-    else
-    {
-        occupation = buffering::occupation::consumer{info,
-                                                     process_id,
-                                                     message_read_notifier,
-                                                     message_written_notifier,
-                                                     data->message_queue,
-                                                     data->done_flag,
-                                                     data->consumed_message_count};
-    }
-    if (!buffering::processor{role, occupation}.process())
+    if (!processor.process())
     {
         return EXIT_FAILURE;
     }
