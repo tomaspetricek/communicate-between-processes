@@ -142,7 +142,7 @@ int main(int, char **)
     }
     const auto process_id = unix::get_process_id();
 
-    auto processor = create_processor(
+    auto processor = buffering::create_processor(
         info, process_id, message_count, message_written_notifier,
         message_read_notifier, children_readiness_notifier, producers_notifier,
         data->done_flag, data->produced_message_count,
