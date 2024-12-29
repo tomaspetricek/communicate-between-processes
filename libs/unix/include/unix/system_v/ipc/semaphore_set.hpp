@@ -12,7 +12,6 @@
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
-
 namespace unix::system_v::ipc
 {
     using semaphore_value_t = int;
@@ -226,6 +225,37 @@ namespace unix::system_v::ipc
             assert(sem_index >= 0 && sem_index < count_);
             assert(decrement < 0);
             return change_value(sem_index, decrement);
+        }
+
+        std::expected<void, error_code> try_changing_value(semaphore_index_t sem_index, semaphore_value_t change) const noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            sembuf args;
+            args.sem_num = sem_index;
+            args.sem_op = change;
+            args.sem_flg = IPC_NOWAIT;
+
+            const auto ret = semop(handle_, &args, 1);
+
+            if (operation_failed(ret))
+            {
+                return std::unexpected{error_code{errno}};
+            }
+            return std::expected<void, error_code>{};
+        }
+
+        std::expected<void, error_code> try_increasing_value(semaphore_index_t sem_index, semaphore_value_t increment) const noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            assert(increment > 0);
+            return try_changing_value(sem_index, increment);
+        }
+
+        std::expected<void, error_code> try_decreasing_value(semaphore_index_t sem_index, semaphore_value_t decrement) const noexcept
+        {
+            assert(sem_index >= 0 && sem_index < count_);
+            assert(decrement < 0);
+            return try_changing_value(sem_index, decrement);
         }
 
         std::expected<void, error_code> remove() const noexcept

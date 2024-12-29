@@ -153,8 +153,7 @@ namespace buffering::role
         return true;
     }
 
-    bool wait_till_all_children_ready(const std::size_t created_process_count,
-                                      const unix::system_v::ipc::group_notifier
+    bool wait_till_all_children_ready(const unix::system_v::ipc::group_notifier
                                           &children_readiness_notifier) noexcept
     {
         using namespace unix::system_v;
@@ -177,8 +176,7 @@ namespace buffering::role
     {
         std::println("wait till all children process are ready");
 
-        if (!wait_till_all_children_ready(info.created_process_count,
-                                          children_readiness_notifier))
+        if (!wait_till_all_children_ready(children_readiness_notifier))
         {
             return false;
         }

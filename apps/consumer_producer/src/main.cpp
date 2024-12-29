@@ -15,13 +15,14 @@
 #include "unix/system_v/ipc/group_notifier.hpp"
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
+#include "unix/resource_remover.hpp"
+#include "unix/resource_destroyer.hpp"
 
 #include "buffering/message_queue.hpp"
 #include "buffering/occupation.hpp"
 #include "buffering/process_creation.hpp"
 #include "buffering/process_info.hpp"
 #include "buffering/processor.hpp"
-#include "buffering/resource_releaser.hpp"
 #include "buffering/role.hpp"
 #include "buffering/shared_data.hpp"
 
@@ -62,7 +63,7 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    buffering::resource_remover_t<string_literal{"shared memory"},
+    unix::resource_remover_t<string_literal{"shared memory"},
                                   ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
@@ -76,7 +77,7 @@ int main(int, char **)
     }
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
-    buffering::resource_remover_t<string_literal{"semaphore set"},
+    unix::resource_remover_t<string_literal{"semaphore set"},
                                   ipc::semaphore_set>
         semaphore_remover{&semaphores};
 
@@ -106,7 +107,7 @@ int main(int, char **)
     {
         if (info.created_process_count != children_count)
         {
-            std::println("failed to create all children process");
+            std::println("failed to create all children processes");
             return EXIT_FAILURE;
         }
         assert(consumer_count > 0 && producer_count > 0);
@@ -132,7 +133,7 @@ int main(int, char **)
     std::println("attached to shared memory");
 
     auto *data = new (memory.get()) buffering::shared_data{};
-    buffering::resource_destroyer_t<string_literal{"data"},
+    unix::resource_destroyer_t<string_literal{"data"},
                                     buffering::shared_data>
         data_destroyer{data};
 
