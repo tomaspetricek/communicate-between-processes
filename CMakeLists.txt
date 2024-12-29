@@ -9,6 +9,7 @@ project(communicate_between_processes VERSION 0.1.0 LANGUAGES C CXX)
 # add libraries
 add_subdirectory(libs/unix)
 add_subdirectory(libs/core)
+add_subdirectory(libs/common)
 
 # add applications
 add_subdirectory(apps/consumer_producer)
