@@ -5,18 +5,18 @@
 
 #include "unix/deleter.hpp"
 
-#include "string_literal.hpp"
+#include "core/string_literal.hpp"
 
 namespace unix
 {
-    template <string_literal ResourceName, class Resource>
+    template <core::string_literal ResourceName, class Resource>
     static void destroy_resource(Resource *resource) noexcept
     {
         resource->~Resource();
         std::println("{} destroyed", ResourceName.data());
     }
 
-    template <string_literal ResourceName, class Resource>
+    template <core::string_literal ResourceName, class Resource>
     using resource_destroyer_t =
         std::unique_ptr<Resource,
                         unix::deleter<destroy_resource<ResourceName, Resource>>>;

@@ -8,7 +8,7 @@
 #include <variant>
 
 #include "lock_free/ring_buffer.hpp"
-#include "string_literal.hpp"
+#include "core/string_literal.hpp"
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
@@ -63,7 +63,7 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    unix::resource_remover_t<string_literal{"shared memory"},
+    unix::resource_remover_t<core::string_literal{"shared memory"},
                                   ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
@@ -77,7 +77,7 @@ int main(int, char **)
     }
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
-    unix::resource_remover_t<string_literal{"semaphore set"},
+    unix::resource_remover_t<core::string_literal{"semaphore set"},
                                   ipc::semaphore_set>
         semaphore_remover{&semaphores};
 
@@ -133,7 +133,7 @@ int main(int, char **)
     std::println("attached to shared memory");
 
     auto *data = new (memory.get()) buffering::shared_data{};
-    unix::resource_destroyer_t<string_literal{"data"},
+    unix::resource_destroyer_t<core::string_literal{"data"},
                                     buffering::shared_data>
         data_destroyer{data};
 

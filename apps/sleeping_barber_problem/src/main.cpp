@@ -3,7 +3,7 @@
 #include <print>
 #include <thread>
 
-#include "string_literal.hpp"
+#include "core/string_literal.hpp"
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
@@ -276,7 +276,7 @@ int main(int, char **)
     }
     auto &semaphores = semaphores_created.value();
 
-    unix::resource_remover_t<string_literal{"semaphores"},
+    unix::resource_remover_t<core::string_literal{"semaphores"},
                              unix::system_v::ipc::semaphore_set>
         semaphores_remover{&semaphores};
 
@@ -310,7 +310,7 @@ int main(int, char **)
     }
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
-    unix::resource_remover_t<string_literal{"shared memory"},
+    unix::resource_remover_t<core::string_literal{"shared memory"},
                              unix::system_v::ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
@@ -343,7 +343,7 @@ int main(int, char **)
     std::println("attached to shared memory");
 
     auto *data = new (memory.get()) shared_data{};
-    unix::resource_destroyer_t<string_literal{"data"}, shared_data>
+    unix::resource_destroyer_t<core::string_literal{"data"}, shared_data>
         data_destroyer{data};
 
     if (info.is_child)

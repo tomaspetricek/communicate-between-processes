@@ -5,11 +5,11 @@
 
 #include "unix/deleter.hpp"
 
-#include "string_literal.hpp"
+#include "core/string_literal.hpp"
 
 namespace unix
 {
-    template <string_literal ResourceName, class Resource>
+    template <core::string_literal ResourceName, class Resource>
     static void remove_resource(Resource *resource) noexcept
     {
         const auto removed = resource->remove();
@@ -17,7 +17,7 @@ namespace unix
         assert(removed);
     }
 
-    template <string_literal ResourceName, class Resource>
+    template <core::string_literal ResourceName, class Resource>
     using resource_remover_t =
         std::unique_ptr<Resource,
                         unix::deleter<remove_resource<ResourceName, Resource>>>;

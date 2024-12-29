@@ -1,10 +1,11 @@
-#ifndef STRING_LITERAL_HPP
-#define STRING_LITERAL_HPP
+#ifndef CORE_STRING_LITERAL_HPP
+#define CORE_STRING_LITERAL_HPP
 
+#include <algorithm>
 #include <cstddef>
 
 
-namespace
+namespace core
 {
     template <std::size_t Size>
     struct string_literal
@@ -22,4 +23,4 @@ namespace
     };
 }
 
-#endif // STRING_LITERAL_HPP
+#endif // CORE_STRING_LITERAL_HPP
