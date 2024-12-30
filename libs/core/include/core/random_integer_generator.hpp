@@ -10,7 +10,7 @@ namespace core
     class random_integer_generator
     {
     public:
-        explicit random_integer_generator(const Integer min,
+        explicit random_integer_generator(const Integer &min,
                                           const Integer &max) noexcept
             : gen_{std::random_device{}()}, distrib_{min, max}
         {
