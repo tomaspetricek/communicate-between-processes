@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "unix/deleter.hpp"
+#include "core/deleter.hpp"
 
 #include "core/string_literal.hpp"
 
@@ -20,7 +20,7 @@ namespace unix
     template <core::string_literal ResourceName, class Resource>
     using resource_remover_t =
         std::unique_ptr<Resource,
-                        unix::deleter<remove_resource<ResourceName, Resource>>>;
+                        core::deleter<remove_resource<ResourceName, Resource>>>;
 }
 
 #endif // UNIX_RESOURCE_REMOVER_HPP

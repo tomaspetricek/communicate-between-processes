@@ -1,9 +1,9 @@
-#ifndef UNIX_DELETER_HPP
-#define UNIX_DELETER_HPP
+#ifndef CORE_DELETER_HPP
+#define CORE_DELETER_HPP
 
 #include <limits.h>
 
-namespace unix
+namespace core
 {
     template <auto Function>
     struct deleter
@@ -16,4 +16,4 @@ namespace unix
     };
 }
 
-#endif // UNIX_DELETER_HPP
+#endif // CORE_DELETER_HPP

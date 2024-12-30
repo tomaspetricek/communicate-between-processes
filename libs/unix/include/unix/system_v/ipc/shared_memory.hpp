@@ -6,7 +6,8 @@
 #include <sys/shm.h>
 #include <memory>
 
-#include "unix/deleter.hpp"
+#include "core/deleter.hpp"
+
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
 #include "unix/system_v/ipc/key.hpp"
@@ -20,7 +21,7 @@ namespace unix::system_v::ipc
         assert(!operation_failed(ret));
     }
 
-    using shared_memory_ptr_t = std::unique_ptr<void, deleter<detach_shared_memory>>;
+    using shared_memory_ptr_t = std::unique_ptr<void, core::deleter<detach_shared_memory>>;
 
     class shared_memory : public ipc::primitive
     {
