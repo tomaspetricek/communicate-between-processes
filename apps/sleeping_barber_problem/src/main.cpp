@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdint>
 #include <optional>
 #include <print>
 #include <thread>
@@ -18,167 +19,11 @@
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
-#include "lock_free/ring_buffer.hpp"
-
-using customer_t = std::int32_t;
-constexpr std::size_t waiting_chair_count = 5;
-using customer_queue_t =
-    lock_free::ring_buffer<customer_t, waiting_chair_count>;
-
-using get_sleeping_duration_t = std::chrono::milliseconds (*)();
-
-template <class GetSleepingDuration>
-bool serve_customer(
-    const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
-    const unix::system_v::ipc::group_notifier &empty_chair_notifier,
-    customer_queue_t &customer_queue, const std::atomic<bool> &shop_closed,
-    std::atomic<std::int32_t> &served_customers,
-    GetSleepingDuration &get_haircut_duration) noexcept
-{
-    while (true)
-    {
-        std::println("waiting for customer");
-        const auto customer_waiting = customer_waiting_notifier.wait_for_one();
-
-        if (shop_closed.load(std::memory_order_relaxed))
-        {
-            std::println("shop closed");
-            break;
-        }
-        if (!customer_waiting)
-        {
-            std::println("failed to waiting for customer waiting due to: {}",
-                         unix::to_string(customer_waiting.error()).data());
-            return false;
-        }
-        const auto customer = customer_queue.pop();
-        std::println("trimming customer: {} hair", customer);
-        std::this_thread::sleep_for(std::chrono::milliseconds{get_haircut_duration()});
-        served_customers.fetch_add(1, std::memory_order_relaxed);
-        const auto &empty_chair = empty_chair_notifier.notify_one();
-
-        if (!empty_chair)
-        {
-            std::println("failed to notify about empty chair due to: {}",
-                         unix::to_string(empty_chair.error()).data());
-            return false;
-        }
-    }
-    return true;
-}
-
-template <class GetSleepingDuration>
-bool generate_customers(
-    const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
-    const unix::system_v::ipc::group_notifier &empty_chair_notifier,
-    customer_queue_t &customer_queue, std::atomic<customer_t> &next_customer_id,
-    const std::atomic<bool> &shop_closed,
-    std::atomic<std::int32_t> &refused_customers,
-    GetSleepingDuration &get_customer_arrival_duration) noexcept
-{
-    while (true)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds{get_customer_arrival_duration()});
-        const auto customer = next_customer_id++;
-        const auto empty_chair = empty_chair_notifier.try_waiting_for_one();
-
-        if (shop_closed.load(std::memory_order_relaxed))
-        {
-            std::println("shop closed");
-            break;
-        }
-        if (!empty_chair)
-        {
-            if (empty_chair.error().code != EAGAIN)
-            {
-                std::println("failed trying to wait for an empty chair due to: {}",
-                             unix::to_string(empty_chair.error()).data());
-                return false;
-            }
-            std::println("all chairs occupied, refusing customer: {}", customer);
-            refused_customers.fetch_add(1, std::memory_order_relaxed);
-        }
-        else
-        {
-            std::println("adding customer: {}", customer);
-            customer_queue.push(customer);
-            const auto customer_waiting = customer_waiting_notifier.notify_one();
-
-            if (!customer_waiting)
-            {
-                std::println("failed to notify about customer waiting due to: {}",
-                             unix::to_string(customer_waiting.error()).data());
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-struct process_info
-{
-    bool is_child{false};
-    bool is_barber{false};
-    std::size_t created_process_count{0};
-    std::size_t group_id{0};
-};
-
-// ToDo: avoid copying
-process_info
-create_child_processes(std::size_t barber_count,
-                       std::size_t customer_generator_count) noexcept
-{
-    constexpr std::size_t process_counts_size{2};
-    using process_counts_t = std::array<std::size_t, process_counts_size>;
-    static_assert(process_counts_size == std::size_t{2});
-    const auto process_counts =
-        process_counts_t{customer_generator_count, barber_count};
-    process_info info;
-    info.is_child = true;
-    std::size_t i{0};
-    assert(info.is_barber == false);
-
-    for (std::size_t c{0}; c < process_counts.size(); ++c)
-    {
-        info.is_barber = c;
-
-        for (i = 0; i < process_counts[c]; ++i)
-        {
-            const auto process_created = unix::create_process();
-
-            if (!process_created)
-            {
-                std::println("failed to create child process due to: {}",
-                             unix::to_string(process_created.error()).data());
-                break;
-            }
-            info.created_process_count++;
-
-            if (!unix::is_child_process(process_created.value()))
-            {
-                std::println("created child process with id: {}",
-                             process_created.value());
-            }
-            else
-            {
-                return info;
-            }
-        }
-    }
-    info.is_child = false;
-    info.is_barber = false;
-    info.group_id = 0;
-    return info;
-}
-
-struct shared_data
-{
-    std::atomic<bool> shop_closed{false};
-    std::atomic<customer_t> next_customer_id{0};
-    std::atomic<std::int32_t> served_customers{0};
-    std::atomic<std::int32_t> refused_customers{0};
-    customer_queue_t customer_queue;
-};
+#include "barber/occupation/barber.hpp"
+#include "barber/occupation/customer_generator.hpp"
+#include "barber/role/parent.hpp"
+#include "barber/shared_data.hpp"
+#include "barber/customer_queue.hpp"
 
 int main(int, char **)
 {
@@ -187,7 +32,7 @@ int main(int, char **)
     constexpr std::size_t barber_count{1}, customer_generator_count{5},
         children_count{barber_count + customer_generator_count}, sem_count{3},
         child_readiness_sem_index{0}, empty_chair_sem_index{1},
-        customer_waiting_sem_index{2}, mem_size{sizeof(shared_data)},
+        customer_waiting_sem_index{2}, mem_size{sizeof(barber::shared_data)},
         min_haircut_duration{100}, max_haircut_duration{3 * min_haircut_duration},
         min_customer_arrival_duration{200},
         max_customer_arrival_duration{min_customer_arrival_duration * 10};
@@ -220,7 +65,7 @@ int main(int, char **)
         semaphores_remover{&semaphores};
 
     std::array<unsigned short, sem_count> init_values{
-        {0, waiting_chair_count, 0}};
+        {0, barber::waiting_chair_count, 0}};
     const auto all_initialized = semaphores.set_values(init_values);
 
     if (!all_initialized)
@@ -254,7 +99,7 @@ int main(int, char **)
         shared_memory_remover{&shared_memory};
 
     const auto info =
-        create_child_processes(barber_count, customer_generator_count);
+        barber::role::create_child_processes(barber_count, customer_generator_count);
 
     if (!info.is_child)
     {
@@ -281,8 +126,8 @@ int main(int, char **)
     auto &memory = memory_attached.value();
     std::println("attached to shared memory");
 
-    auto *data = new (memory.get()) shared_data{};
-    unix::resource_destroyer_t<core::string_literal{"data"}, shared_data>
+    auto *data = new (memory.get()) barber::shared_data{};
+    unix::resource_destroyer_t<core::string_literal{"data"}, barber::shared_data>
         data_destroyer{data};
 
     if (info.is_child)
@@ -313,9 +158,10 @@ int main(int, char **)
                 min_haircut_duration, max_haircut_duration};
             std::println("started serving customers");
 
-            if (!serve_customer(customer_waiting_notifier, empty_chair_notifier,
-                                data->customer_queue, data->shop_closed,
-                                data->served_customers, get_haircut_duration))
+            if (!barber::occupation::serve_customer(
+                    customer_waiting_notifier, empty_chair_notifier,
+                    data->customer_queue, data->shop_closed, data->served_customers,
+                    get_haircut_duration))
             {
                 return EXIT_FAILURE;
             }
@@ -326,10 +172,10 @@ int main(int, char **)
                 min_customer_arrival_duration, max_customer_arrival_duration};
             std::println("started generating customers");
 
-            if (!generate_customers(customer_waiting_notifier, empty_chair_notifier,
-                                    data->customer_queue, data->next_customer_id,
-                                    data->shop_closed, data->refused_customers,
-                                    get_customer_arrival_duration))
+            if (!barber::occupation::generate_customers(
+                    customer_waiting_notifier, empty_chair_notifier,
+                    data->customer_queue, data->next_customer_id, data->shop_closed,
+                    data->refused_customers, get_customer_arrival_duration))
             {
                 return EXIT_FAILURE;
             }
