@@ -1,9 +1,10 @@
 #ifndef UNIX_PROCESS_HPP
 #define UNIX_PROCESS_HPP
 
-#include <unistd.h>
+#include <chrono>
 #include <expected>
 #include <errno.h>
+#include <unistd.h>
 #include <sys/wait.h>
 
 #include "unix/error_code.hpp"
@@ -39,7 +40,7 @@ namespace unix
         return getppid();
     }
 
-    std::expected<process_id_t, error_code> wait_till_child_terminates(int* status) noexcept
+    std::expected<process_id_t, error_code> wait_till_child_terminates(int *status) noexcept
     {
         const auto child_id = wait(status);
 
@@ -48,6 +49,19 @@ namespace unix
             return std::unexpected{error_code{errno}};
         }
         return std::expected<process_id_t, error_code>{child_id};
+    }
+
+    std::expected<void, std::chrono::seconds> sleep(const std::chrono::seconds &amount) noexcept
+    {
+        using seconds_t = unsigned int;
+        const auto amount_ = static_cast<seconds_t>(amount.count());
+        const seconds_t remaining = ::sleep(amount_);
+
+        if (remaining == seconds_t{0})
+        {
+            return std::expected<void, std::chrono::seconds>{};
+        }
+        return std::unexpected{std::chrono::seconds{remaining}};
     }
 }
 
