@@ -5,13 +5,21 @@
 #include <print>
 #include <thread>
 
-#include "unix/system_v/ipc/group_notifier.hpp"
 #include "unix/error_code.hpp"
+#include "unix/system_v/ipc/group_notifier.hpp"
 
 #include "barber/customer_queue.hpp"
 
 namespace barber::occupation
 {
+    void trim_hair(customer_t customer, std::chrono::milliseconds trimming_duration,
+                   std::atomic<std::int32_t> &served_customers) noexcept
+    {
+        std::println("trimming customer: {} hair", customer);
+        std::this_thread::sleep_for(trimming_duration);
+        served_customers.fetch_add(1, std::memory_order_relaxed);
+    }
+
     template <class GetSleepingDuration>
     bool serve_customer(
         const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
@@ -27,7 +35,19 @@ namespace barber::occupation
 
             if (shop_closed.load(std::memory_order_relaxed))
             {
-                std::println("shop closed");
+                std::println("shop is closing, finishing serving last customers");
+
+                while (!customer_queue.empty())
+                {
+                    const auto possible_customer = customer_queue.try_pop();
+
+                    if (possible_customer)
+                    {
+                        trim_hair(possible_customer.value(),
+                                  std::chrono::milliseconds{get_haircut_duration()},
+                                  served_customers);
+                    }
+                }
                 break;
             }
             if (!customer_waiting)
@@ -37,9 +57,8 @@ namespace barber::occupation
                 return false;
             }
             const auto customer = customer_queue.pop();
-            std::println("trimming customer: {} hair", customer);
-            std::this_thread::sleep_for(std::chrono::milliseconds{get_haircut_duration()});
-            served_customers.fetch_add(1, std::memory_order_relaxed);
+            trim_hair(customer, std::chrono::milliseconds{get_haircut_duration()},
+                      served_customers);
             const auto &empty_chair = empty_chair_notifier.notify_one();
 
             if (!empty_chair)
@@ -51,6 +70,6 @@ namespace barber::occupation
         }
         return true;
     }
-}
+} // namespace barber::occupation
 
 #endif // BARBER_OCCUPATION_BARBER_HPP

@@ -26,7 +26,6 @@ namespace barber::occupation
         {
             std::this_thread::sleep_for(
                 std::chrono::milliseconds{get_customer_arrival_duration()});
-            const auto customer = next_customer_id++;
             const auto empty_chair = empty_chair_notifier.try_waiting_for_one();
 
             if (shop_closed.load(std::memory_order_relaxed))
@@ -34,6 +33,9 @@ namespace barber::occupation
                 std::println("shop closed");
                 break;
             }
+            const auto customer =
+                next_customer_id.fetch_add(1, std::memory_order_relaxed);
+
             if (!empty_chair)
             {
                 if (empty_chair.error().code != EAGAIN)

@@ -7,7 +7,6 @@
 
 namespace lock_free
 {
-    // src: https://rigtorp.se/ringbuffer/
     template <class Value, std::size_t Capacity>
     class ring_buffer
     {
@@ -16,37 +15,85 @@ namespace lock_free
         static_assert(Capacity > 0, "capacity must be greather than zero");
 
     public:
-        bool full() const
+        bool try_push(const Value &value)
         {
             const auto write_idx = write_idx_.load(std::memory_order_relaxed);
-            auto next_write_idx = (write_idx + 1) % data_.size();
-            return (next_write_idx == read_idx_.load(std::memory_order_relaxed));
+            const auto next_write_idx = (write_idx + 1) % Capacity;
+
+            // check if is full
+            if (next_write_idx == read_idx_.load(std::memory_order_acquire))
+            {
+                return false;
+            }
+            const bool success = write_idx_.compare_exchange_strong(write_idx, next_write_idx, std::memory_order_release, std::memory_order_relaxed);
+
+            if (!success)
+            {
+                return false;
+            }
+            data_[write_idx] = value;
+            return true;
         }
 
-        template <typename... Args>
-        void push(Args &&...args) noexcept
+        std::optional<Value> try_pop()
         {
-            const auto write_idx = write_idx_.load(std::memory_order_relaxed);
-            auto next_write_idx = (write_idx + 1) % data_.size();
-            assert(next_write_idx < data_.size());
-            data_[write_idx] = Value{std::forward<Args>(args)...};
-            write_idx_.store(next_write_idx, std::memory_order_release);
+            auto read_idx = read_idx_.load(std::memory_order_relaxed);
+
+            // check if is empty
+            if (read_idx == write_idx_.load(std::memory_order_acquire))
+            {
+                return std::nullopt; // Buffer is empty
+            }
+            const auto next_read_idx = (read_idx + 1) % Capacity;
+            const bool success = read_idx_.compare_exchange_strong(read_idx, next_read_idx, std::memory_order_release, std::memory_order_relaxed);
+
+            if (!success)
+            {
+                return std::nullopt;
+            }
+            return data_[read_idx];
+        }
+
+        void push(const Value &value) noexcept
+        {
+            auto write_idx = write_idx_.load(std::memory_order_relaxed);
+
+            while (true)
+            {
+                const auto next_write_idx = (write_idx + 1) % Capacity;
+
+                if (write_idx_.compare_exchange_strong(write_idx, next_write_idx, std::memory_order_release, std::memory_order_relaxed))
+                {
+                    break;
+                }
+            }
+            data_[write_idx] = value;
+        }
+
+        Value pop() noexcept
+        {
+            auto read_idx = read_idx_.load(std::memory_order_relaxed);
+
+            while (true)
+            {
+                const auto next_read_idx = (read_idx + 1) % Capacity;
+
+                if (read_idx_.compare_exchange_strong(read_idx, next_read_idx, std::memory_order_release, std::memory_order_relaxed))
+                {
+                    break;
+                }
+            }
+            return data_[read_idx];
         }
 
         bool empty() const
         {
-            const auto read_idx = read_idx_.load(std::memory_order_relaxed);
-            return (read_idx == write_idx_.load(std::memory_order_relaxed));
+            return read_idx_.load(std::memory_order_acquire) == write_idx_.load(std::memory_order_acquire);
         }
 
-        Value pop()
+        bool full() const
         {
-            const auto read_idx = read_idx_.load(std::memory_order_relaxed);
-            auto val = std::move(data_[read_idx]);
-            auto next_read_idx = (read_idx + 1) % data_.size();
-            assert(next_read_idx < data_.size());
-            read_idx_.store(next_read_idx, std::memory_order_release);
-            return val;
+            return (write_idx_.load(std::memory_order_acquire) + 1) % Capacity == read_idx_.load(std::memory_order_acquire);
         }
 
         static constexpr std::size_t capacity() noexcept

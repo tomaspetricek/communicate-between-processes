@@ -19,11 +19,11 @@
 #include "unix/system_v/ipc/semaphore_set.hpp"
 #include "unix/system_v/ipc/shared_memory.hpp"
 
+#include "barber/customer_queue.hpp"
 #include "barber/occupation/barber.hpp"
 #include "barber/occupation/customer_generator.hpp"
 #include "barber/role/parent.hpp"
 #include "barber/shared_data.hpp"
-#include "barber/customer_queue.hpp"
 
 int main(int, char **)
 {
@@ -98,8 +98,8 @@ int main(int, char **)
                              unix::system_v::ipc::shared_memory>
         shared_memory_remover{&shared_memory};
 
-    const auto info =
-        barber::role::create_child_processes(barber_count, customer_generator_count);
+    const auto info = barber::role::create_child_processes(
+        barber_count, customer_generator_count);
 
     if (!info.is_child)
     {
@@ -195,13 +195,18 @@ int main(int, char **)
         {
             return EXIT_FAILURE;
         }
-        std::println("served customer count: {}",
-                     data->served_customers.load(std::memory_order_relaxed));
-        std::println("refused customers count: {}",
-                     data->refused_customers.load(std::memory_order_relaxed));
-        std::println("arrived customers count: {}",
-                     data->next_customer_id.load(std::memory_order_relaxed));
+        const auto served_count =
+            data->served_customers.load(std::memory_order_relaxed);
+        const auto refused_count =
+            data->refused_customers.load(std::memory_order_relaxed);
+        const auto arrived_count =
+            data->next_customer_id.load(std::memory_order_relaxed);
+
+        std::println("served customer count: {}", served_count);
+        std::println("refused customers count: {}", refused_count);
+        std::println("arrived customers count: {}", arrived_count);
         std::println("all done");
+        assert((served_count + refused_count) == arrived_count);
     }
     return EXIT_SUCCESS;
 }
