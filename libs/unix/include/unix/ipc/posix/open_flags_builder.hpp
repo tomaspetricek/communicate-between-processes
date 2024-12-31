@@ -1,9 +1,9 @@
-#ifndef UNIX_POSIX_IPC_OPEN_FLAGS_BUILDER
-#define UNIX_POSIX_IPC_OPEN_FLAGS_BUILDER
+#ifndef UNIX_IPC_POSIX_OPEN_FLAGS_BUILDER
+#define UNIX_IPC_POSIX_OPEN_FLAGS_BUILDER
 
-#include "unix/posix/ipc/open_flags.hpp"
+#include "unix/ipc/posix/open_flags.hpp"
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
     template <class ConcreteBuilder>
     class open_flags_builder
@@ -39,6 +39,6 @@ namespace unix::posix::ipc
             return flags_;
         }
     };
-} // namespace unix::posix::ipc
+} // namespace unix::ipc::posix
 
-#endif // UNIX_POSIX_IPC_OPEN_FLAGS_BUILDER
+#endif // UNIX_IPC_POSIX_OPEN_FLAGS_BUILDER

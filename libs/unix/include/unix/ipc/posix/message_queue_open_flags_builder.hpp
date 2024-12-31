@@ -1,13 +1,13 @@
-#ifndef UNIX_POSIX_IPC_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER
-#define UNIX_POSIX_IPC_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER
+#ifndef UNIX_IPC_POSIX_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER
+#define UNIX_IPC_POSIX_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER
 
 #include <array>
 #include <cassert>
 
-#include "unix/posix/ipc/open_flags.hpp"
-#include "unix/posix/ipc/open_flags_builder.hpp"
+#include "unix/ipc/posix/open_flags.hpp"
+#include "unix/ipc/posix/open_flags_builder.hpp"
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
     enum class access_mode
     {
@@ -42,6 +42,6 @@ namespace unix::posix::ipc
             return *this;
         }
     };
-} // namespace unix::posix::ipc
+} // namespace unix::ipc::posix
 
-#endif // UNIX_POSIX_IPC_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER
+#endif // UNIX_IPC_POSIX_MESSAGE_QUEUE_OPEN_FLAGS_BUILDER

@@ -12,9 +12,9 @@
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
-#include "unix/system_v/ipc/group_notifier.hpp"
-#include "unix/system_v/ipc/semaphore_set.hpp"
-#include "unix/system_v/ipc/shared_memory.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
+#include "unix/ipc/system_v/shared_memory.hpp"
 #include "unix/resource_remover.hpp"
 #include "unix/resource_destroyer.hpp"
 
@@ -28,7 +28,7 @@
 
 int main(int, char **)
 {
-    using namespace unix::system_v;
+    using namespace unix::ipc;
 
     constexpr std::size_t semaphore_count{4}, readiness_sem_index{0},
         written_message_sem_index{1}, read_message_sem_index{2},
@@ -53,7 +53,7 @@ int main(int, char **)
                                .others_can_execute()
                                .get();
     auto shared_memory_created =
-        ipc::shared_memory::create_private(mem_size, perms);
+        system_v::shared_memory::create_private(mem_size, perms);
 
     if (!shared_memory_created)
     {
@@ -64,11 +64,11 @@ int main(int, char **)
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
     unix::resource_remover_t<core::string_literal{"shared memory"},
-                                  ipc::shared_memory>
+                                  system_v::shared_memory>
         shared_memory_remover{&shared_memory};
 
     auto semaphore_created =
-        ipc::semaphore_set::create_private(semaphore_count, perms);
+        system_v::semaphore_set::create_private(semaphore_count, perms);
 
     if (!semaphore_created)
     {
@@ -78,16 +78,16 @@ int main(int, char **)
     std::println("semaphores created");
     auto &semaphores = semaphore_created.value();
     unix::resource_remover_t<core::string_literal{"semaphore set"},
-                                  ipc::semaphore_set>
+                                  system_v::semaphore_set>
         semaphore_remover{&semaphores};
 
-    const auto message_written_notifier = unix::system_v::ipc::group_notifier{
+    const auto message_written_notifier = unix::ipc::system_v::group_notifier{
         semaphores, written_message_sem_index, consumer_count};
-    const auto message_read_notifier = unix::system_v::ipc::group_notifier{
+    const auto message_read_notifier = unix::ipc::system_v::group_notifier{
         semaphores, read_message_sem_index, producer_count};
-    const auto children_readiness_notifier = unix::system_v::ipc::group_notifier{
+    const auto children_readiness_notifier = unix::ipc::system_v::group_notifier{
         semaphores, readiness_sem_index, children_count};
-    const auto producers_notifier = unix::system_v::ipc::group_notifier{
+    const auto producers_notifier = unix::ipc::system_v::group_notifier{
         semaphores, producer_sem_index, producer_count};
 
     std::array<unsigned short, semaphore_count> init_values = {

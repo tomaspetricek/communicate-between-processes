@@ -1,11 +1,11 @@
 #include <print>
 
 #include <unix/error_code.hpp>
-#include <unix/system_v/ipc/key.hpp>
+#include <unix/ipc/system_v/key.hpp>
 
 int main(int, char **)
 {
-    const auto key_generated = unix::system_v::ipc::generate_key("/does_not_exist.txt", 1);
+    const auto key_generated = unix::ipc::system_v::generate_key("/does_not_exist.txt", 1);
 
     if (!key_generated)
     {

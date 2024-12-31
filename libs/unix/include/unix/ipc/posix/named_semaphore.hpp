@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP
-#define UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP
+#ifndef UNIX_IPC_POSIX_NAMED_SEMAPHORE_HPP
+#define UNIX_IPC_POSIX_NAMED_SEMAPHORE_HPP
 
 #include <errno.h>
 #include <semaphore.h>
@@ -10,15 +10,15 @@
 #include <string_view>
 
 #include "unix/error_code.hpp"
-#include "unix/posix/ipc/open_flags.hpp"
-#include "unix/posix/ipc/utility.hpp"
-#include "unix/posix/ipc/primitive.hpp"
+#include "unix/ipc/posix/open_flags.hpp"
+#include "unix/ipc/posix/utility.hpp"
+#include "unix/ipc/posix/primitive.hpp"
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
     using named_semaphore_value_t = unsigned int;
 
-    class named_semaphore : ipc::primitive
+    class named_semaphore : primitive
     {
         using handle_type = sem_t;
 
@@ -140,6 +140,6 @@ namespace unix::posix::ipc
             return std::unexpected{error_code{errno}};
         }
     };
-} // namespace unix::posix::ipc
+} // namespace unix::ipc::posix
 
-#endif // UNIX_POSIX_IPC_NAMED_SEMAPHORE_HPP
+#endif // UNIX_IPC_POSIX_NAMED_SEMAPHORE_HPP

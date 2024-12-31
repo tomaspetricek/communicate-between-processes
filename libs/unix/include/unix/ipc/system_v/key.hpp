@@ -1,5 +1,5 @@
-#ifndef UNIX_SYSTEM_V_IPC_KEY_HPP
-#define UNIX_SYSTEM_V_IPC_KEY_HPP
+#ifndef UNIX_IPC_SYSTEM_V_KEY_HPP
+#define UNIX_IPC_SYSTEM_V_KEY_HPP
 
 #include <cassert>
 #include <errno.h>
@@ -11,7 +11,7 @@
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
-namespace unix::system_v::ipc
+namespace unix::ipc::system_v
 {
     using key_t = ::key_t;
 
@@ -35,4 +35,4 @@ namespace unix::system_v::ipc
     }
 }
 
-#endif // UNIX_SYSTEM_V_IPC_KEY_HPP
+#endif // UNIX_IPC_SYSTEM_V_KEY_HPP

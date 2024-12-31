@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_IPC_SHARED_MEMORY_HPP
-#define UNIX_POSIX_IPC_SHARED_MEMORY_HPP
+#ifndef UNIX_IPC_POSIX_SHARED_MEMORY_HPP
+#define UNIX_IPC_POSIX_SHARED_MEMORY_HPP
 
 #include <cassert>
 #include <expected>
@@ -7,11 +7,11 @@
 #include <sys/mman.h>
 
 #include "unix/error_code.hpp"
-#include "unix/posix/ipc/utility.hpp"
-#include "unix/posix/ipc/primitive.hpp"
+#include "unix/ipc/posix/utility.hpp"
+#include "unix/ipc/posix/primitive.hpp"
 
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
     class shared_memory : public ipc::primitive
     {
@@ -27,4 +27,4 @@ namespace unix::posix::ipc
     };
 }
 
-#endif // UNIX_POSIX_IPC_SHARED_MEMORY_HPP
+#endif // UNIX_IPC_POSIX_SHARED_MEMORY_HPP

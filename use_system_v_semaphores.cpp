@@ -5,12 +5,12 @@
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
-#include "unix/system_v/ipc/key.hpp"
-#include "unix/system_v/ipc/semaphore_set.hpp"
+#include "unix/ipc/system_v/key.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
 
 int main(int, char **)
 {
-    using namespace unix::system_v;
+    using namespace unix::ipc;
 
     constexpr std::size_t sem_count = 3;
     constexpr auto permissions = unix::permissions_builder{}
@@ -21,7 +21,7 @@ int main(int, char **)
                                      .others_can_read()
                                      .others_can_write()
                                      .get();
-    const auto semaphores_created = ipc::semaphore_set::create_private(sem_count, permissions);
+    const auto semaphores_created = system_v::semaphore_set::create_private(sem_count, permissions);
 
     if (!semaphores_created)
     {

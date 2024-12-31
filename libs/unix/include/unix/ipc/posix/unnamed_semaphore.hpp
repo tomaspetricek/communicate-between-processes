@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP
-#define UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#ifndef UNIX_IPC_POSIX_UNNAMED_SEMAPHORE_HPP
+#define UNIX_IPC_POSIX_UNNAMED_SEMAPHORE_HPP
 
 #include <cstdint>
 #include <errno.h>
@@ -8,11 +8,11 @@
 #include "semaphore.h"
 
 #include "unix/error_code.hpp"
-#include "unix/posix/ipc/primitive.hpp"
+#include "unix/ipc/posix/primitive.hpp"
 #include "unix/utility.hpp"
 
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
     enum class shared_between : std::uint8_t
     {
@@ -20,7 +20,7 @@ namespace unix::posix::ipc
         processes,
     };
 
-    class unnamed_semaphore : public ipc::primitive
+    class unnamed_semaphore : public primitive
     {
         using handle_type = sem_t;
 
@@ -82,4 +82,4 @@ namespace unix::posix::ipc
     };
 }
 
-#endif // UNIX_POSIX_IPC_UNNAMED_SEMAPHORE_HPP
+#endif // UNIX_IPC_POSIX_UNNAMED_SEMAPHORE_HPP

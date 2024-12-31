@@ -5,7 +5,7 @@
 #include <functional>
 #include <print>
 
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 #include "unix/signal.hpp"
 #include "unix/process.hpp"
 #include "unix/error_code.hpp"
@@ -17,7 +17,7 @@
 namespace buffering::role
 {
     bool stop_consumption(
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
         std::atomic<bool> &done_flag) noexcept
     {
         done_flag.store(true);
@@ -32,7 +32,7 @@ namespace buffering::role
         return true;
     }
 
-    bool wait_till_all_messages_consumed(const unix::system_v::ipc::group_notifier
+    bool wait_till_all_messages_consumed(const unix::ipc::system_v::group_notifier
                                              &message_written_notifier) noexcept
     {
         const auto all_consumed = message_written_notifier.wait_till_none();
@@ -47,7 +47,7 @@ namespace buffering::role
     }
 
     bool wait_till_production_complete(
-        const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+        const unix::ipc::system_v::group_notifier &producers_notifier) noexcept
     {
         const auto production_stopped = producers_notifier.wait_for_all();
 
@@ -62,8 +62,8 @@ namespace buffering::role
     }
 
     bool finalize_parent_process(
-        const unix::system_v::ipc::group_notifier &producers_notifier,
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &producers_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
         const std::atomic<std::int32_t> &consumed_message_count,
         const std::atomic<std::int32_t> &produced_message_count,
         std::atomic<bool> &done_flag) noexcept
@@ -105,7 +105,7 @@ namespace buffering::role
     }
 
     bool start_production(
-        const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+        const unix::ipc::system_v::group_notifier &producers_notifier) noexcept
     {
         const auto start_production = producers_notifier.notify_all();
 
@@ -120,8 +120,8 @@ namespace buffering::role
 
     bool setup_parent_process(
         const process_info &info,
-        const unix::system_v::ipc::group_notifier &children_readiness_notifier,
-        const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+        const unix::ipc::system_v::group_notifier &children_readiness_notifier,
+        const unix::ipc::system_v::group_notifier &producers_notifier) noexcept
     {
         std::println("wait till all children process are ready");
 
@@ -145,9 +145,9 @@ namespace buffering::role
     public:
         explicit parent(
             const process_info &info,
-            const unix::system_v::ipc::group_notifier &children_readiness_notifier,
-            const unix::system_v::ipc::group_notifier &producers_notifier,
-            const unix::system_v::ipc::group_notifier &message_written_notifier,
+            const unix::ipc::system_v::group_notifier &children_readiness_notifier,
+            const unix::ipc::system_v::group_notifier &producers_notifier,
+            const unix::ipc::system_v::group_notifier &message_written_notifier,
             const std::atomic<std::int32_t> &consumed_message_count,
             const std::atomic<std::int32_t> &produced_message_count,
             std::atomic<bool> &done_flag) noexcept
@@ -174,11 +174,11 @@ namespace buffering::role
 
     private:
         process_info info_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             children_readiness_notifier_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             producers_notifier_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             message_written_notifier_;
         std::reference_wrapper<const std::atomic<std::int32_t>>
             consumed_message_count_;

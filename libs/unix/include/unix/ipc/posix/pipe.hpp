@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_IPC_PIPE_HPP
-#define UNIX_POSIX_IPC_PIPE_HPP
+#ifndef UNIX_IPC_POSIX_PIPE_HPP
+#define UNIX_IPC_POSIX_PIPE_HPP
 
 #include <array>
 #include <cassert>
@@ -8,13 +8,13 @@
 #include <unistd.h>
 
 #include "unix/error_code.hpp"
-#include "unix/posix/ipc/primitive.hpp"
+#include "unix/ipc/posix/primitive.hpp"
 #include "unix/utility.hpp"
 
 
-namespace unix::posix::ipc
+namespace unix::ipc::posix
 {
-    class pipe : public ipc::primitive
+    class pipe : public primitive
     {
         using file_descriptor_t = int;
         static constexpr std::size_t end_count = 2;
@@ -47,14 +47,14 @@ namespace unix::posix::ipc
         // find a way to make it private
         explicit pipe(const file_descriptors_t &fds) noexcept : fds_{fds} {}
 
-        static std::expected<unix::posix::ipc::pipe, error_code> create() noexcept
+        static std::expected<unix::ipc::posix::pipe, error_code> create() noexcept
         {
             file_descriptor_t fds[end_count];
             const auto ret = ::pipe(fds);
 
             if (unix::operation_successful(ret))
             {
-                return std::expected<unix::posix::ipc::pipe, error_code>{std::in_place, std::to_array(fds)};
+                return std::expected<unix::ipc::posix::pipe, error_code>{std::in_place, std::to_array(fds)};
             }
             assert(unix::operation_failed(ret));
             return std::unexpected{error_code{errno}};
@@ -124,6 +124,6 @@ namespace unix::posix::ipc
         file_descriptors_t fds_;
         uint8_t end_open_{0b11111111};
     };
-} // namespace unix::posix::ipc
+} // namespace unix::ipc::posix
 
-#endif // UNIX_POSIX_IPC_PIPE_HPP
+#endif // UNIX_IPC_POSIX_PIPE_HPP

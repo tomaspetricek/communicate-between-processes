@@ -1,7 +1,7 @@
-#ifndef UNIX_SYSTEM_V_IPC_PRIMITIVE_HPP
-#define UNIX_SYSTEM_V_IPC_PRIMITIVE_HPP
+#ifndef UNIX_IPC_POSIX_PRIMITIVE_HPP
+#define UNIX_IPC_POSIX_PRIMITIVE_HPP
 
-namespace unix::system_v::ipc
+namespace unix::ipc::posix
 {
     class primitive
     {
@@ -15,6 +15,6 @@ namespace unix::system_v::ipc
         primitive(primitive &&other) noexcept = delete;
         primitive &operator=(primitive &&other) noexcept = delete;
     };
-}
+} // namespace unix::ipc::posix
 
-#endif // UNIX_SYSTEM_V_IPC_PRIMITIVE_HPP
+#endif // UNIX_IPC_POSIX_PRIMITIVE_HPP

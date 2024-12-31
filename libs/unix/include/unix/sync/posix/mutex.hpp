@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_MUTEX_HPP
-#define UNIX_POSIX_MUTEX_HPP
+#ifndef UNIX_SYNC_POSIX_MUTEX_HPP
+#define UNIX_SYNC_POSIX_MUTEX_HPP
 
 #include <cassert>
 #include <errno.h>
@@ -9,7 +9,7 @@
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
 
-namespace unix::posix
+namespace unix::sync::posix
 {
     class mutex
     {
@@ -65,6 +65,6 @@ namespace unix::posix
     private:
         pthread_mutex_t handle_;
     };
-} // namespace posix
+} // namespace unix::sync::posix
 
-#endif // UNIX_POSIX_MUTEX_HPP
+#endif // UNIX_SYNC_POSIX_MUTEX_HPP

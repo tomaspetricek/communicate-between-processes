@@ -3,7 +3,7 @@
 
 #include <print>
 
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 #include "unix/process.hpp"
 #include "unix/signal.hpp"
 
@@ -46,11 +46,9 @@ namespace common
         return true;
     }
 
-    bool wait_till_all_children_ready(const unix::system_v::ipc::group_notifier
+    bool wait_till_all_children_ready(const unix::ipc::system_v::group_notifier
                                           &children_readiness_notifier) noexcept
     {
-        using namespace unix::system_v;
-
         const auto readiness_signaled = children_readiness_notifier.wait_for_all();
 
         if (!readiness_signaled)
@@ -62,7 +60,7 @@ namespace common
         return true;
     }
 
-    bool signal_readiness_to_parent(const unix::system_v::ipc::group_notifier
+    bool signal_readiness_to_parent(const unix::ipc::system_v::group_notifier
                                         &children_readiness_notifier) noexcept
     {
         const auto readiness_signaled = children_readiness_notifier.notify_one();

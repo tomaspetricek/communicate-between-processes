@@ -7,7 +7,7 @@
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
 #include "unix/process.hpp"
-#include "unix/system_v/ipc/semaphore_set.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
 #include "unix/utility.hpp"
 #include "unix/signal.hpp"
 
@@ -29,7 +29,7 @@ int main(int, char **)
                                      .others_can_read()
                                      .others_can_write()
                                      .get();
-    const auto semaphore_created = system_v::ipc::semaphore_set::create_private(sem_count, permissions);
+    const auto semaphore_created = ipc::system_v::semaphore_set::create_private(sem_count, permissions);
 
     if (!semaphore_created)
     {

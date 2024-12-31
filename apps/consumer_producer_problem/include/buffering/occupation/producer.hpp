@@ -4,7 +4,7 @@
 #include <atomic>
 #include <functional>
 
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 #include "unix/process.hpp"
 
 #include "buffering/process_info.hpp"
@@ -13,7 +13,7 @@
 namespace buffering::occupation
 {
     bool notify_about_production_completion(
-        const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+        const unix::ipc::system_v::group_notifier &producers_notifier) noexcept
     {
         const auto production_done = producers_notifier.notify_one();
 
@@ -27,8 +27,8 @@ namespace buffering::occupation
 
     bool produce_messages(
         const process_info &info, const std::size_t message_count,
-        const unix::system_v::ipc::group_notifier &message_read_notifier,
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &message_read_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
         message_queue_t &message_queue,
         std::atomic<std::int32_t> &produced_message_count) noexcept
     {
@@ -73,7 +73,7 @@ namespace buffering::occupation
     }
 
     bool wait_till_production_start(
-        const unix::system_v::ipc::group_notifier &producers_notifier) noexcept
+        const unix::ipc::system_v::group_notifier &producers_notifier) noexcept
     {
         const auto start_production = producers_notifier.wait_for_one();
 
@@ -87,9 +87,9 @@ namespace buffering::occupation
 
     bool run_producer(
         const process_info &info, std::size_t message_count,
-        const unix::system_v::ipc::group_notifier &producers_notifier,
-        const unix::system_v::ipc::group_notifier &message_read_notifier,
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &producers_notifier,
+        const unix::ipc::system_v::group_notifier &message_read_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
         message_queue_t &message_queue,
         std::atomic<std::int32_t> &produced_message_count) noexcept
     {
@@ -124,9 +124,9 @@ namespace buffering::occupation
     public:
         explicit producer(
             const process_info &info, std::size_t message_count,
-            const unix::system_v::ipc::group_notifier &producers_notifier,
-            const unix::system_v::ipc::group_notifier &message_read_notifier,
-            const unix::system_v::ipc::group_notifier &message_written_notifier,
+            const unix::ipc::system_v::group_notifier &producers_notifier,
+            const unix::ipc::system_v::group_notifier &message_read_notifier,
+            const unix::ipc::system_v::group_notifier &message_written_notifier,
             message_queue_t &message_queue,
             std::atomic<std::int32_t> &produced_message_count) noexcept
             : info_{info}, message_count_{message_count},
@@ -146,11 +146,11 @@ namespace buffering::occupation
     private:
         process_info info_;
         std::size_t message_count_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             producers_notifier_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             message_read_notifier_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             message_written_notifier_;
         std::reference_wrapper<message_queue_t> message_queue_;
         std::reference_wrapper<std::atomic<std::int32_t>> produced_message_count_;

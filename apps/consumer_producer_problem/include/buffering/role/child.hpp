@@ -5,14 +5,14 @@
 #include <print>
 
 #include "unix/process.hpp"
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 
 #include "common/process.hpp"
 
 namespace buffering::role
 {
     bool setup_child_process(unix::process_id_t process_id,
-                             const unix::system_v::ipc::group_notifier
+                             const unix::ipc::system_v::group_notifier
                                  &children_readiness_notifier) noexcept
     {
         if (!common::signal_readiness_to_parent(children_readiness_notifier))
@@ -27,7 +27,7 @@ namespace buffering::role
     {
     public:
         explicit child(unix::process_id_t process_id,
-                       const unix::system_v::ipc::group_notifier
+                       const unix::ipc::system_v::group_notifier
                            &children_readiness_notifier) noexcept
             : process_id_{process_id},
               children_readiness_notifier_{std::cref(children_readiness_notifier)} {}
@@ -41,7 +41,7 @@ namespace buffering::role
 
     private:
         unix::process_id_t process_id_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             children_readiness_notifier_;
     };
 }

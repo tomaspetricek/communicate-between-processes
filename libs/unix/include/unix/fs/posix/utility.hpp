@@ -1,5 +1,5 @@
-#ifndef UNIX_POSIX_FS_UTILITY_HPP
-#define UNIX_POSIX_FS_UTILITY_HPP
+#ifndef UNIX_FS_POSIX_UTILITY_HPP
+#define UNIX_FS_POSIX_UTILITY_HPP
 
 #include <cassert>
 #include <expected>
@@ -9,7 +9,7 @@
 #include "unix/error_code.hpp"
 #include "unix/utility.hpp"
 
-namespace unix::posix::fs
+namespace unix::fs::posix
 {
     std::expected<void, error_code> create_directory(std::string_view path, mode_t mode) noexcept
     {
@@ -150,4 +150,4 @@ namespace unix::posix::fs
     }
 }
 
-#endif // UNIX_POSIX_FS_UTILITY_HPP
+#endif // UNIX_FS_POSIX_UTILITY_HPP

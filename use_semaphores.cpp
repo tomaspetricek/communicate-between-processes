@@ -6,9 +6,9 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-#include "unix/posix/mutex.hpp"
-#include "unix/posix/ipc/named_semaphore.hpp"
-#include "unix/posix/ipc/unnamed_semaphore.hpp"
+#include "unix/sync/posix/mutex.hpp"
+#include "unix/ipc/posix/named_semaphore.hpp"
+#include "unix/ipc/posix/unnamed_semaphore.hpp"
 #include "unix/permissions_builder.hpp"
 
 
@@ -25,11 +25,11 @@ namespace
                                .others_can_read()
                                .get();
     static_assert(0644 == perms);
-    const auto empty_slots_created = unix::posix::ipc::named_semaphore::create_exclusively("/empty", perms, buffer_size); // all slots available in the beginning
-    const auto filled_slots_created = unix::posix::ipc::named_semaphore::create_exclusively("/filled", perms, 0);         // no slots are filled in the beginning
+    const auto empty_slots_created = unix::ipc::posix::named_semaphore::create_exclusively("/empty", perms, buffer_size); // all slots available in the beginning
+    const auto filled_slots_created = unix::ipc::posix::named_semaphore::create_exclusively("/filled", perms, 0);         // no slots are filled in the beginning
     const auto &empty_slots = empty_slots_created.value();                                                           // tracks available slots in the buffer
     const auto &filled_slots = filled_slots_created.value();                                                         // tracks the number of items in the buffer
-    auto buffer_mutex_created = unix::posix::mutex::create();
+    auto buffer_mutex_created = unix::sync::posix::mutex::create();
     auto &buffer_mutex = buffer_mutex_created.value();
 
     void *producer(void *arg)
@@ -109,13 +109,13 @@ int main(int, char **)
     empty_slots.unlink();
     filled_slots.unlink();
 
-    using namespace unix::posix;
+    using namespace unix::ipc;
 
-    const auto created = ipc::unnamed_semaphore::create(ipc::shared_between::threads, 1);
+    const auto created = posix::unnamed_semaphore::create(posix::shared_between::threads, 1);
     assert(!created);
     std::println("failed to create unnamed semaphore due to: {}", unix::to_string(created.error()).data());
 
-    auto mutex_created = mutex::create();
+    auto mutex_created = unix::sync::posix::mutex::create();
     assert(mutex_created.has_value());
     auto &mutex = mutex_created.value();
     assert(mutex.lock());

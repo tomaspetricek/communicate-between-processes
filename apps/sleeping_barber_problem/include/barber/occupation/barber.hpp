@@ -6,7 +6,7 @@
 #include <thread>
 
 #include "unix/error_code.hpp"
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 
 #include "barber/customer_queue.hpp"
 
@@ -22,8 +22,8 @@ namespace barber::occupation
 
     template <class GetSleepingDuration>
     bool serve_customer(
-        const unix::system_v::ipc::group_notifier &customer_waiting_notifier,
-        const unix::system_v::ipc::group_notifier &empty_chair_notifier,
+        const unix::ipc::system_v::group_notifier &customer_waiting_notifier,
+        const unix::ipc::system_v::group_notifier &empty_chair_notifier,
         customer_queue_t &customer_queue, const std::atomic<bool> &shop_closed,
         std::atomic<std::int32_t> &served_customers,
         GetSleepingDuration &get_haircut_duration) noexcept

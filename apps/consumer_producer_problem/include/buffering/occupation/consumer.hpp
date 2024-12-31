@@ -4,7 +4,7 @@
 #include <atomic>
 #include <functional>
 
-#include "unix/system_v/ipc/group_notifier.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
 #include "unix/process.hpp"
 
 #include "buffering/process_info.hpp"
@@ -14,8 +14,8 @@ namespace buffering::occupation
 {
     bool consume_messages(
         const process_info &info,
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
-        const unix::system_v::ipc::group_notifier &message_read_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &message_read_notifier,
         message_queue_t &message_queue, const unix::process_id_t &process_id,
         const std::atomic<bool> &done_flag,
         std::atomic<std::int32_t> &consumed_message_count) noexcept
@@ -55,8 +55,8 @@ namespace buffering::occupation
 
     bool run_consumer(
         const process_info &info, unix::process_id_t process_id,
-        const unix::system_v::ipc::group_notifier &message_read_notifier,
-        const unix::system_v::ipc::group_notifier &message_written_notifier,
+        const unix::ipc::system_v::group_notifier &message_read_notifier,
+        const unix::ipc::system_v::group_notifier &message_written_notifier,
         message_queue_t &message_queue, std::atomic<bool> &done_flag,
         std::atomic<std::int32_t> &consumed_message_count)
     {
@@ -77,8 +77,8 @@ namespace buffering::occupation
     public:
         explicit consumer(
             const process_info &info, unix::process_id_t process_id,
-            const unix::system_v::ipc::group_notifier &message_read_notifier,
-            const unix::system_v::ipc::group_notifier &message_written_notifier,
+            const unix::ipc::system_v::group_notifier &message_read_notifier,
+            const unix::ipc::system_v::group_notifier &message_written_notifier,
             message_queue_t &message_queue, std::atomic<bool> &done_flag,
             std::atomic<std::int32_t> &consumed_message_count) noexcept
             : info_{info}, process_id_{process_id},
@@ -97,9 +97,9 @@ namespace buffering::occupation
     private:
         process_info info_;
         unix::process_id_t process_id_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             message_read_notifier_;
-        std::reference_wrapper<const unix::system_v::ipc::group_notifier>
+        std::reference_wrapper<const unix::ipc::system_v::group_notifier>
             message_written_notifier_;
         std::reference_wrapper<message_queue_t> message_queue_;
         std::reference_wrapper<std::atomic<bool>> done_flag_;

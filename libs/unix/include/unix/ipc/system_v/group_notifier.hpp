@@ -1,14 +1,14 @@
-#ifndef UNIX_SYSTEM_V_IPC_GROUP_NOTIFIER_HPP
-#define UNIX_SYSTEM_V_IPC_GROUP_NOTIFIER_HPP
+#ifndef UNIX_IPC_SYSTEM_V_GROUP_NOTIFIER_HPP
+#define UNIX_IPC_SYSTEM_V_GROUP_NOTIFIER_HPP
 
 #include <cassert>
 #include <expected>
 
 #include "unix/error_code.hpp"
-#include "unix/system_v/ipc/semaphore_set.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
 #include "unix/utility.hpp"
 
-namespace unix::system_v::ipc
+namespace unix::ipc::system_v
 {
     class group_notifier
     {
@@ -58,6 +58,6 @@ namespace unix::system_v::ipc
         semaphore_index_t index_;
         semaphore_value_t group_size_;
     };
-} // namespace unix::system_v::ipc
+} // namespace unix::ipc::system_v
 
-#endif // UNIX_SYSTEM_V_IPC_GROUP_NOTIFIER_HPP
+#endif // UNIX_IPC_SYSTEM_V_GROUP_NOTIFIER_HPP

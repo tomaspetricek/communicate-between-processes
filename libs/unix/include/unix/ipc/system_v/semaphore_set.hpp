@@ -1,5 +1,5 @@
-#ifndef UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
-#define UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
+#ifndef UNIX_IPC_SYSTEM_V_SEMAPHORE_HPP
+#define UNIX_IPC_SYSTEM_V_SEMAPHORE_HPP
 
 #include <array>
 #include <cassert>
@@ -7,17 +7,17 @@
 #include <sys/sem.h>
 #include <span>
 
-#include "unix/system_v/ipc/primitive.hpp"
-#include "unix/system_v/ipc/key.hpp"
+#include "unix/ipc/system_v/primitive.hpp"
+#include "unix/ipc/system_v/key.hpp"
 #include "unix/utility.hpp"
 #include "unix/error_code.hpp"
 
-namespace unix::system_v::ipc
+namespace unix::ipc::system_v
 {
     using semaphore_value_t = int;
     using semaphore_index_t = semaphore_value_t;
 
-    class semaphore_set : public ipc::primitive
+    class semaphore_set : public primitive
     {
         using handle_type = int;
 
@@ -52,7 +52,7 @@ namespace unix::system_v::ipc
             return semaphore_set::get_info(handle_);
         }
 
-        static std::expected<semaphore_set, error_code> create(ipc::key_t key, int semaphore_count, int flags) noexcept
+        static std::expected<semaphore_set, error_code> create(system_v::key_t key, int semaphore_count, int flags) noexcept
         {
             const handle_type handle = semget(key, semaphore_count, flags);
 
@@ -71,22 +71,22 @@ namespace unix::system_v::ipc
             return std::expected<semaphore_set, error_code>{std::in_place, handle, count};
         }
 
-        static std::expected<semaphore_set, error_code> open_existing(ipc::key_t key) noexcept
+        static std::expected<semaphore_set, error_code> open_existing(system_v::key_t key) noexcept
         {
-            assert(key > ipc::key_t{0});
+            assert(key > system_v::key_t{0});
             return create(key, int{0}, int{0});
         }
 
-        static std::expected<semaphore_set, error_code> create_if_absent(ipc::key_t key, int semaphore_count, int permissions) noexcept
+        static std::expected<semaphore_set, error_code> create_if_absent(system_v::key_t key, int semaphore_count, int permissions) noexcept
         {
-            assert(key > ipc::key_t{0});
+            assert(key > system_v::key_t{0});
             assert(semaphore_count > int{0});
             return create(key, semaphore_count, IPC_CREAT | permissions);
         }
 
-        static std::expected<semaphore_set, error_code> create_exclusively(ipc::key_t key, int semaphore_count, int permissions) noexcept
+        static std::expected<semaphore_set, error_code> create_exclusively(system_v::key_t key, int semaphore_count, int permissions) noexcept
         {
-            assert(key > ipc::key_t{0});
+            assert(key > system_v::key_t{0});
             assert(semaphore_count > int{0});
             return create(key, semaphore_count, IPC_CREAT | IPC_EXCL | permissions);
         }
@@ -275,4 +275,4 @@ namespace unix::system_v::ipc
     };
 }
 
-#endif // UNIX_SYSTEM_V_IPC_SEMAPHORE_HPP
+#endif // UNIX_IPC_SYSTEM_V_SEMAPHORE_HPP

@@ -3,7 +3,7 @@
 
 #include "unix/error_code.hpp"
 #include "unix/permissions_builder.hpp"
-#include "unix/posix/fs/utility.hpp"
+#include "unix/fs/posix/utility.hpp"
 
 int main(int, char **)
 {
@@ -22,7 +22,7 @@ int main(int, char **)
                                .others_can_execute()
                                .get();
     const auto directory_created =
-        unix::posix::fs::create_directory(dir_path, perms);
+        unix::fs::posix::create_directory(dir_path, perms);
 
     if (!directory_created)
     {
@@ -33,7 +33,7 @@ int main(int, char **)
     {
         std::println("directory created");
     }
-    const auto file_info_retrieved = unix::posix::fs::get_file_info(dir_path);
+    const auto file_info_retrieved = unix::fs::posix::get_file_info(dir_path);
 
     if (!file_info_retrieved)
     {

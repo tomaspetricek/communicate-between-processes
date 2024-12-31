@@ -15,9 +15,9 @@
 #include "unix/resource_destroyer.hpp"
 #include "unix/resource_remover.hpp"
 #include "unix/signal.hpp"
-#include "unix/system_v/ipc/group_notifier.hpp"
-#include "unix/system_v/ipc/semaphore_set.hpp"
-#include "unix/system_v/ipc/shared_memory.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
+#include "unix/ipc/system_v/shared_memory.hpp"
 
 #include "barber/customer_queue.hpp"
 #include "barber/occupation/barber.hpp"
@@ -50,7 +50,7 @@ int main(int, char **)
                                .others_can_execute()
                                .get();
     auto semaphores_created =
-        unix::system_v::ipc::semaphore_set::create_private(sem_count, perms);
+        unix::ipc::system_v::semaphore_set::create_private(sem_count, perms);
 
     if (!semaphores_created)
     {
@@ -61,7 +61,7 @@ int main(int, char **)
     auto &semaphores = semaphores_created.value();
 
     unix::resource_remover_t<core::string_literal{"semaphores"},
-                             unix::system_v::ipc::semaphore_set>
+                             unix::ipc::system_v::semaphore_set>
         semaphores_remover{&semaphores};
 
     std::array<unsigned short, sem_count> init_values{
@@ -76,15 +76,15 @@ int main(int, char **)
     }
     std::println("all semaphores from the set initialized");
 
-    const auto empty_chair_notifier = unix::system_v::ipc::group_notifier{
+    const auto empty_chair_notifier = unix::ipc::system_v::group_notifier{
         semaphores, empty_chair_sem_index, customer_generator_count};
-    const auto customer_waiting_notifier = unix::system_v::ipc::group_notifier{
+    const auto customer_waiting_notifier = unix::ipc::system_v::group_notifier{
         semaphores, customer_waiting_sem_index, barber_count};
-    const auto children_readiness_notifier = unix::system_v::ipc::group_notifier{
+    const auto children_readiness_notifier = unix::ipc::system_v::group_notifier{
         semaphores, child_readiness_sem_index, children_count};
 
     auto shared_memory_created =
-        unix::system_v::ipc::shared_memory::create_private(mem_size, perms);
+        unix::ipc::system_v::shared_memory::create_private(mem_size, perms);
 
     if (!shared_memory_created)
     {
@@ -95,7 +95,7 @@ int main(int, char **)
     std::println("shared memory created");
     auto &shared_memory = shared_memory_created.value();
     unix::resource_remover_t<core::string_literal{"shared memory"},
-                             unix::system_v::ipc::shared_memory>
+                             unix::ipc::system_v::shared_memory>
         shared_memory_remover{&shared_memory};
 
     const auto info = barber::role::create_child_processes(
