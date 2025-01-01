@@ -12,13 +12,13 @@ namespace lock_free
     {
         std::array<Value, Capacity> data_;
         alignas(64) std::atomic<std::size_t> read_idx_{0}, write_idx_{0}; // aligned to cache line
-        static_assert(Capacity > 0, "capacity must be greather than zero");
+        static_assert(Capacity > 1, "capacity must be greather than one");
 
     public:
         bool try_push(const Value &value)
         {
-            const auto write_idx = write_idx_.load(std::memory_order_relaxed);
-            const auto next_write_idx = (write_idx + 1) % Capacity;
+            auto write_idx = write_idx_.load(std::memory_order_relaxed);
+            const auto next_write_idx = (write_idx + 1) % data_.size();
 
             // check if is full
             if (next_write_idx == read_idx_.load(std::memory_order_acquire))
@@ -44,7 +44,7 @@ namespace lock_free
             {
                 return std::nullopt; // Buffer is empty
             }
-            const auto next_read_idx = (read_idx + 1) % Capacity;
+            const auto next_read_idx = (read_idx + 1) % data_.size();
             const bool success = read_idx_.compare_exchange_strong(read_idx, next_read_idx, std::memory_order_release, std::memory_order_relaxed);
 
             if (!success)
@@ -60,7 +60,7 @@ namespace lock_free
 
             while (true)
             {
-                const auto next_write_idx = (write_idx + 1) % Capacity;
+                const auto next_write_idx = (write_idx + 1) % data_.size();
 
                 if (write_idx_.compare_exchange_strong(write_idx, next_write_idx, std::memory_order_release, std::memory_order_relaxed))
                 {
@@ -76,7 +76,7 @@ namespace lock_free
 
             while (true)
             {
-                const auto next_read_idx = (read_idx + 1) % Capacity;
+                const auto next_read_idx = (read_idx + 1) % data_.size();
 
                 if (read_idx_.compare_exchange_strong(read_idx, next_read_idx, std::memory_order_release, std::memory_order_relaxed))
                 {
@@ -93,7 +93,7 @@ namespace lock_free
 
         bool full() const
         {
-            return (write_idx_.load(std::memory_order_acquire) + 1) % Capacity == read_idx_.load(std::memory_order_acquire);
+            return (write_idx_.load(std::memory_order_acquire) + 1) % data_.size() == read_idx_.load(std::memory_order_acquire);
         }
 
         static constexpr std::size_t capacity() noexcept
