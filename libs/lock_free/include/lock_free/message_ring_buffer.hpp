@@ -13,21 +13,21 @@ namespace lock_free
     class message_ring_buffer
     {
         template <class Copy>
-        void copy_data(std::size_t &idx, std::size_t count, Copy copy) noexcept
+        void copy_data(std::size_t &buffer_idx, std::size_t count, Copy copy) noexcept
         {
-            auto tail_size = std::min(count, buffer_.size() - idx);
-            copy(idx, tail_size);
+            const auto tail_size = std::min(count, buffer_.size() - buffer_idx);
+            copy(buffer_idx, tail_size);
 
             if (tail_size < count)
             {
-                idx = 0;
+                buffer_idx = 0;
                 const auto head_size = count - tail_size;
-                copy(idx, head_size);
-                idx = head_size;
+                copy(buffer_idx, head_size);
+                buffer_idx = head_size;
             }
             else
             {
-                idx = (idx + tail_size) % buffer_.size();
+                buffer_idx = (buffer_idx + tail_size) % buffer_.size();
             }
         }
 
@@ -36,9 +36,9 @@ namespace lock_free
         {
             const char *output{bytes.data()};
             copy_data(write_idx, bytes.size(),
-                      [&output, this](std::size_t idx, std::size_t size) -> void
+                      [&output, this](std::size_t buffer_idx, std::size_t size) -> void
                       {
-                          std::memcpy(buffer_.data() + idx, output, size);
+                          std::memcpy(buffer_.data() + buffer_idx, output, size);
                           output += size;
                       });
         }
@@ -47,9 +47,9 @@ namespace lock_free
         {
             char *input{bytes.data()};
             copy_data(read_idx, bytes.size(),
-                      [&input, this](std::size_t idx, std::size_t size) -> void
+                      [&input, this](std::size_t buffer_idx, std::size_t size) -> void
                       {
-                          std::memcpy(input, buffer_.data() + idx, size);
+                          std::memcpy(input, buffer_.data() + buffer_idx, size);
                           input += size;
                       });
         }
@@ -143,7 +143,7 @@ namespace lock_free
             std::aligned_storage_t<sizeof(char), alignof(std::max_align_t)>;
         std::array<buffer_type, Capacity> buffer_ = {};
         alignas(64) std::atomic<std::size_t> read_idx_{0},
-            write_idx_{0}; // aligned to cache line
+            write_idx_{0};
         static_assert(Capacity > 1, "capacity must be greather than one");
     };
 } // namespace lock_free
