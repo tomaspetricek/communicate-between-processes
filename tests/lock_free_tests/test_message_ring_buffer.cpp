@@ -1,19 +1,15 @@
-#include <cassert>
 #include <print>
+#include <ranges>
+#include <span>
 #include <string_view>
+#include <vector>
+
+#include <gtest/gtest.h>
 
 #include "lock_free/message_ring_buffer.hpp"
-#include "lock_free/ring_buffer.hpp"
 
-int main(int, char **)
+TEST(MessageRingBuffer, TestPushingPoppingMessages)
 {
-    lock_free::ring_buffer<std::int32_t, 2 + 1> buffer;
-    assert(buffer.empty());
-    assert(buffer.try_push(1));
-    assert(buffer.try_push(2));
-    assert(buffer.full());
-    assert(!buffer.try_push(3));
-
     constexpr std::string_view in_msg1{"pie apple pen"};
     constexpr std::size_t it_count{10}, message_count{3};
     constexpr std::size_t buffer_size{
@@ -39,8 +35,16 @@ int main(int, char **)
             assert(!queue.empty());
             assert(queue.try_pop(out_msg1));
             assert(!queue.full());
-            std::println("output message 1 ({}): {:s}", out_msg1.size(),
-                         std::span<char>{out_msg1.data(), out_msg1.size()});
+            const auto expect = std::span<const char>(in_msg1.data(), in_msg1.size());
+            const auto actual =
+                std::span<const char>(out_msg1.data(), out_msg1.size());
+
+            ASSERT_EQ(expect.size(), actual.size());
+
+            for (const auto &[e, a] : std::views::zip(expect, actual))
+            {
+                ASSERT_EQ(e, a);
+            }
         }
         assert(queue.empty());
     }

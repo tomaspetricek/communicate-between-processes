@@ -6,6 +6,12 @@ include_directories(include)
 
 project(communicate_between_processes VERSION 0.1.0 LANGUAGES C CXX)
 
+add_subdirectory(external/googletest)
+
+# add unit tests
+enable_testing()
+add_subdirectory(tests)
+
 # add libraries
 add_subdirectory(libs/core)
 add_subdirectory(libs/common)
@@ -33,9 +39,6 @@ target_link_libraries(create_processes PRIVATE unix)
 
 add_executable(generate_key generate_key.cpp)
 target_link_libraries(generate_key PRIVATE unix)
-
-add_executable(use_message_ring_buffer use_message_ring_buffer.cpp)
-target_link_libraries(use_message_ring_buffer PRIVATE lock_free)
 
 add_executable(use_system_v_semaphores use_system_v_semaphores.cpp)
 target_link_libraries(use_system_v_semaphores PRIVATE unix)

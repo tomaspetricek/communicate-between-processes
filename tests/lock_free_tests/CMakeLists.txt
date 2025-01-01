@@ -1,0 +1,5 @@
+add_executable(test_message_ring_buffer test_message_ring_buffer.cpp)
+
+target_link_libraries(test_message_ring_buffer PRIVATE gtest gtest_main lock_free)
+
+add_test(NAME lock_free_tests COMMAND test_message_ring_buffer )
