@@ -76,11 +76,10 @@ namespace lock_free
                 return false;
             }
             const auto next_write_idx = (write_idx + required_mem) % buffer_.size();
-            const bool success = write_idx_.compare_exchange_strong(
-                write_idx, next_write_idx, std::memory_order_release,
-                std::memory_order_relaxed);
 
-            if (!success)
+            if (!write_idx_.compare_exchange_strong(
+                write_idx, next_write_idx, std::memory_order_release,
+                std::memory_order_relaxed))
             {
                 return false;
             }
@@ -111,11 +110,9 @@ namespace lock_free
             const auto total_size = sizeof(std::size_t) + size;
             const auto next_read_idx = (read_idx + total_size) % buffer_.size();
 
-            const bool success = read_idx_.compare_exchange_strong(
-                read_idx, next_read_idx, std::memory_order_release,
-                std::memory_order_relaxed);
-
-            if (!success)
+            if (!read_idx_.compare_exchange_strong(
+                    read_idx, next_read_idx, std::memory_order_release,
+                    std::memory_order_relaxed))
             {
                 return false;
             }
