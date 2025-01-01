@@ -105,7 +105,7 @@ namespace lock_free
             read(msg_read_idx, std::span<char>{reinterpret_cast<char *>(&size), sizeof(std::size_t)});
 
             // allocator may throw an exception
-            message.resize(size);
+            message.reserve(size);
             const auto total_size = sizeof(std::size_t) + size;
             const auto next_read_idx = (read_idx + total_size) % buffer_.size();
 
@@ -117,6 +117,7 @@ namespace lock_free
             {
                 return false;
             }
+            message.assign(size, '\0');
             read(msg_read_idx, std::span<char>{message.data(), size});
             return true;
         }
