@@ -11,40 +11,46 @@ namespace lock_free
     template <std::size_t Capacity>
     class message_ring_buffer
     {
-        void write(std::size_t &write_idx, const char *bytes,
-                   std::size_t count) noexcept
+        template <class Copy>
+        void copy_data(std::size_t &idx, std::size_t count, Copy copy) noexcept
         {
-            std::size_t tail_size = std::min(count, buffer_.size() - write_idx);
-            std::memcpy(buffer_.data() + write_idx, bytes, tail_size);
+            auto tail_size = std::min(count, buffer_.size() - idx);
+            copy(idx, tail_size);
 
-            if (tail_size == count)
+            if (tail_size < count)
             {
-                write_idx = (write_idx + tail_size) % buffer_.size();
-                return;
+                idx = 0;
+                const auto head_size = count - tail_size;
+                copy(idx, head_size);
+                idx = head_size;
             }
-            assert(tail_size < count);
-            write_idx = 0;
-            const std::size_t head_size = count - tail_size;
-            std::memcpy(buffer_.data() + write_idx, bytes + tail_size, head_size);
-            write_idx = (head_size) % buffer_.size();
+            else
+            {
+                idx = (idx + tail_size) % buffer_.size();
+            }
         }
 
-        // ToDo: avoid making copies
-        void read(std::size_t &read_idx, char *bytes, std::size_t count) noexcept
+        void write(std::size_t &write_idx,
+                   const std::span<const char> &bytes) noexcept
         {
-            std::size_t tail_size = std::min(count, buffer_.size() - read_idx);
-            std::memcpy(bytes, buffer_.data() + read_idx, tail_size);
+            const char *output{bytes.data()};
+            copy_data(write_idx, bytes.size(),
+                      [&output, this](std::size_t idx, std::size_t size) -> void
+                      {
+                          std::memcpy(buffer_.data() + idx, output, size);
+                          output += size;
+                      });
+        }
 
-            if (tail_size == count)
-            {
-                read_idx = (read_idx + tail_size) % buffer_.size();
-                return;
-            }
-            assert(tail_size < count);
-            read_idx = 0;
-            const std::size_t head_size = count - tail_size;
-            std::memcpy(bytes + tail_size, buffer_.data() + read_idx, head_size);
-            read_idx = (head_size) % buffer_.size();
+        void read(std::size_t &read_idx, const std::span<char> &bytes) noexcept
+        {
+            char *input{bytes.data()};
+            copy_data(read_idx, bytes.size(),
+                      [&input, this](std::size_t idx, std::size_t size) -> void
+                      {
+                          std::memcpy(input, buffer_.data() + idx, size);
+                          input += size;
+                      });
         }
 
     public:
@@ -78,9 +84,10 @@ namespace lock_free
                 return false;
             }
             const auto message_size = message.size();
-            write(write_idx, reinterpret_cast<const char *>(&message_size),
-                  sizeof(std::size_t));
-            write(write_idx, message.data(), message.size());
+            write(write_idx,
+                  std::span<const char>{reinterpret_cast<const char *>(&message_size),
+                                        sizeof(std::size_t)});
+            write(write_idx, std::span<const char>{message.data(), message.size()});
             return true;
         }
 
@@ -95,7 +102,7 @@ namespace lock_free
             }
             std::size_t size;
             auto msg_read_idx = read_idx;
-            read(msg_read_idx, reinterpret_cast<char *>(&size), sizeof(std::size_t));
+            read(msg_read_idx, std::span<char>{reinterpret_cast<char *>(&size), sizeof(std::size_t)});
 
             // allocator may throw an exception
             message.resize(size);
@@ -110,7 +117,7 @@ namespace lock_free
             {
                 return false;
             }
-            read(msg_read_idx, message.data(), size);
+            read(msg_read_idx, std::span<char>{message.data(), size});
             return true;
         }
 
