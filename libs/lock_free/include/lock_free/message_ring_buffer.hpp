@@ -5,6 +5,7 @@
 #include <atomic>
 #include <span>
 #include <vector>
+#include <type_traits>
 
 namespace lock_free
 {
@@ -102,7 +103,8 @@ namespace lock_free
             }
             std::size_t size;
             auto msg_read_idx = read_idx;
-            read(msg_read_idx, std::span<char>{reinterpret_cast<char *>(&size), sizeof(std::size_t)});
+            read(msg_read_idx,
+                 std::span<char>{reinterpret_cast<char *>(&size), sizeof(std::size_t)});
 
             // allocator may throw an exception
             message.reserve(size);
@@ -137,7 +139,9 @@ namespace lock_free
         static constexpr std::size_t capacity() noexcept { return Capacity; }
 
     private:
-        std::array<char, Capacity> buffer_{};
+        using buffer_type =
+            std::aligned_storage_t<sizeof(char), alignof(std::max_align_t)>;
+        std::array<buffer_type, Capacity> buffer_ = {};
         alignas(64) std::atomic<std::size_t> read_idx_{0},
             write_idx_{0}; // aligned to cache line
         static_assert(Capacity > 1, "capacity must be greather than one");
