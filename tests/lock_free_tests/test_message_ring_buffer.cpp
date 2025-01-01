@@ -37,7 +37,7 @@ TEST(MessageRingBuffer, TestPushingPoppingMessages)
 {
     constexpr std::size_t message_count = 3;
     constexpr auto input_messages =
-        std::array<std::string_view, message_count>{"pie", "apple", "pie"};
+        std::array<std::string_view, message_count>{"pineapple", "apple", "pie"};
     constexpr auto buffer_capacity = compute_buffer_min_capacity(input_messages);
     constexpr std::size_t it_count{10};
     lock_free::message_ring_buffer<buffer_capacity> queue;
