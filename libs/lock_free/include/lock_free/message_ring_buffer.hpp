@@ -55,6 +55,11 @@ namespace lock_free
         }
 
     public:
+        static constexpr std::size_t required_message_storage(std::size_t message_size) noexcept
+        {
+            return sizeof(std::size_t) + message_size;
+        }
+
         bool try_push(std::span<const char> message) noexcept
         {
             auto write_idx = write_idx_.load(std::memory_order_relaxed);
@@ -78,8 +83,8 @@ namespace lock_free
             const auto next_write_idx = (write_idx + required_mem) % buffer_.size();
 
             if (!write_idx_.compare_exchange_strong(
-                write_idx, next_write_idx, std::memory_order_release,
-                std::memory_order_relaxed))
+                    write_idx, next_write_idx, std::memory_order_release,
+                    std::memory_order_relaxed))
             {
                 return false;
             }

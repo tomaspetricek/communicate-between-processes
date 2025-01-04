@@ -10,6 +10,11 @@
 #include <utility>
 
 #include "lock_free/message_ring_buffer.hpp"
+#include "unix/error_code.hpp"
+#include "unix/ipc/system_v/group_notifier.hpp"
+#include "unix/ipc/system_v/semaphore_set.hpp"
+#include "unix/permissions_builder.hpp"
+#include "unix/resource_remover.hpp"
 
 using namespace std::literals::chrono_literals;
 
@@ -18,26 +23,59 @@ namespace async
     template <std::size_t MessageQueueCapacity>
     class writer_group
     {
+        using message_queue_type =
+            lock_free::message_ring_buffer<MessageQueueCapacity>;
+
         std::atomic<bool> stop_flag{false};
-        lock_free::message_ring_buffer<MessageQueueCapacity> &message_queue_;
+        message_queue_type &message_queue_;
+        const unix::ipc::system_v::group_notifier &read_message_bytes_notifier_;
+        const unix::ipc::system_v::group_notifier &written_message_count_notifier_;
 
     public:
-        explicit writer_group(lock_free::message_ring_buffer<MessageQueueCapacity>
-                                  &message_queue) noexcept
-            : message_queue_{message_queue} {}
+        explicit writer_group(
+            lock_free::message_ring_buffer<MessageQueueCapacity> &message_queue,
+            const unix::ipc::system_v::group_notifier &read_message_bytes_notifier,
+            const unix::ipc::system_v::group_notifier
+                &written_message_count_notifier) noexcept
+            : message_queue_{message_queue},
+              read_message_bytes_notifier_{read_message_bytes_notifier},
+              written_message_count_notifier_{written_message_count_notifier} {}
 
         void start(std::size_t writer_id) noexcept
         {
             std::vector<char> message;
 
-            while (!stop_flag.load(std::memory_order_acquire))
+            while (true)
             {
-                if (message_queue_.try_pop(message))
+                const auto message_written =
+                    written_message_count_notifier_.wait_for_one();
+
+                if (!message_written)
                 {
-                    std::println("id: {}, msg: {}", writer_id,
-                                 std::string_view{message.data(), message.size()});
+                    std::println("failed waiting for message being written due to: {}",
+                                 unix::to_string(message_written.error()));
+                    return;
                 }
-                std::this_thread::sleep_for(100ms);
+                if (stop_flag.load(std::memory_order_acquire))
+                {
+                    return;
+                }
+                // ToDo: check the failure reason
+                while (!message_queue_.try_pop(message))
+                {
+                }
+                const auto read_bytes =
+                    message_queue_type::required_message_storage(message.size());
+                const auto read_message = read_message_bytes_notifier_.notify(read_bytes);
+
+                if (!read_message)
+                {
+                    std::println("failed notifying about message being read due to: {}",
+                                 unix::to_string(read_message.error()));
+                    return;
+                }
+                std::println("id: {}, msg: {}", writer_id,
+                             std::string_view{message.data(), message.size()});
             }
         }
 
@@ -84,12 +122,25 @@ namespace async
     class logger
     {
         using writers_type = writer_group<MessageQueueCapacity>;
+        using message_queue_type =
+            lock_free::message_ring_buffer<MessageQueueCapacity>;
+
         std::array<std::thread, WriterCount> threads_;
         lock_free::message_ring_buffer<MessageQueueCapacity> message_queue_;
         writers_type writers_;
+        // ToDo: create in the constructor
+        const unix::ipc::system_v::group_notifier &read_message_bytes_notifier_;
+        const unix::ipc::system_v::group_notifier &written_message_count_notifier_;
 
     public:
-        explicit logger() noexcept : writers_{message_queue_}
+        explicit logger(
+            const unix::ipc::system_v::group_notifier &read_message_bytes_notifier,
+            const unix::ipc::system_v::group_notifier
+                &written_message_count_notifier) noexcept
+            : writers_{message_queue_, read_message_bytes_notifier,
+                       written_message_count_notifier},
+              read_message_bytes_notifier_{read_message_bytes_notifier},
+              written_message_count_notifier_{written_message_count_notifier}
         {
             for (std::size_t index{0}; index < threads_.size(); ++index)
             {
@@ -100,6 +151,7 @@ namespace async
 
         ~logger() noexcept
         {
+            written_message_count_notifier_.notify_all();
             writers_.stop();
 
             for (auto &thread : threads_)
@@ -109,28 +161,94 @@ namespace async
         }
 
         template <std::size_t Size, class... Args>
-        void log(const char (&format)[Size], const Args &...args) noexcept
+        bool log(const char (&format)[Size], const Args &...args) noexcept
         {
             constexpr std::size_t message_size = Size;
             message_buffer<message_size> message;
             message.append(format);
 
+            const auto read_bytes =
+                message_queue_type::required_message_storage(message.size());
+            const auto message_read = read_message_bytes_notifier_.wait_for(read_bytes);
+
+            if (!message_read)
+            {
+                std::println("failed waiting for message bytes being read due to: {}",
+                             unix::to_string(message_read.error()));
+                return false;
+            }
+            // ToDo: check the failure reason
             while (!message_queue_.try_push(message.span()))
             {
             }
+            const auto message_written = written_message_count_notifier_.notify_one();
+
+            if (!message_written)
+            {
+                std::println("failed notifying about message being written due to: {}",
+                             unix::to_string(message_written.error()));
+                return false;
+            }
+            return true;
         }
     };
 } // namespace async
 
 int main(int, char **)
 {
-    constexpr std::size_t worker_count{4}, message_queue_capacity{1'024},
-        message_count{100};
-    async::logger<worker_count, message_queue_capacity> logger;
+    constexpr std::size_t writer_count{4}, message_queue_capacity{1'024},
+        message_count{100}, sem_count{2}, read_message_bytes_sem_index{0},
+        written_message_sem_index{1};
+    constexpr auto perms = unix::permissions_builder{}
+                               .owner_can_read()
+                               .owner_can_write()
+                               .owner_can_execute()
+                               .group_can_read()
+                               .group_can_write()
+                               .group_can_execute()
+                               .others_can_read()
+                               .others_can_write()
+                               .others_can_execute()
+                               .get();
+    auto semaphores_created =
+        unix::ipc::system_v::semaphore_set::create_private(sem_count, perms);
+
+    if (!semaphores_created)
+    {
+        std::println("failed to create semaphores due to: {}",
+                     unix::to_string(semaphores_created.error()).data());
+        return EXIT_FAILURE;
+    }
+    auto &semaphores = semaphores_created.value();
+
+    unix::resource_remover_t<core::string_literal{"semaphores"},
+                             unix::ipc::system_v::semaphore_set>
+        semaphores_remover{&semaphores};
+
+    std::array<unsigned short, sem_count> init_values{
+        {message_queue_capacity, 0}};
+    const auto all_initialized = semaphores.set_values(init_values);
+
+    if (!all_initialized)
+    {
+        std::println("failed to initialize semaphore set valued: {}",
+                     unix::to_string(all_initialized.error()).data());
+        return EXIT_FAILURE;
+    }
+    std::println("all semaphores from the set initialized");
+
+    const auto read_message_bytes_notifier = unix::ipc::system_v::group_notifier{
+        semaphores, read_message_bytes_sem_index, message_queue_capacity};
+    const auto written_message_count_notifier =
+        unix::ipc::system_v::group_notifier{semaphores, written_message_sem_index,
+                                            writer_count};
+
+    async::logger<writer_count, message_queue_capacity> logger{
+        read_message_bytes_notifier, written_message_count_notifier};
 
     for (std::size_t index{0}; index < message_count; ++index)
     {
         logger.log("hello {}", 42, 24.5);
-        std::this_thread::sleep_for(50ms);
+        std::this_thread::sleep_for(5ms);
     }
 }

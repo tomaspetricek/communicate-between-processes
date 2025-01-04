@@ -28,6 +28,12 @@ namespace unix::ipc::system_v
             return semaphores_.decrease_value(index_, -1);
         }
 
+        std::expected<void, error_code> wait_for(semaphore_value_t count) const noexcept
+        {
+            assert(count > 0);
+            return semaphores_.decrease_value(index_, -count);
+        }
+
         std::expected<void, error_code> wait_for_all() const noexcept
         {
             return semaphores_.decrease_value(index_, -group_size_);
@@ -36,6 +42,12 @@ namespace unix::ipc::system_v
         std::expected<void, error_code> notify_one() const noexcept
         {
             return semaphores_.increase_value(index_, 1);
+        }
+
+        std::expected<void, error_code> notify(semaphore_value_t count) const noexcept
+        {
+            assert(count > 0);
+            return semaphores_.increase_value(index_, count);
         }
 
         std::expected<void, error_code> notify_all() const noexcept
