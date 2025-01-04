@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.31.0)
 
-set(CMAKE_CXX_STANDARD 23)
-
-include_directories(include)
-
 project(communicate_between_processes VERSION 0.1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(external/googletest)
 
@@ -19,6 +19,7 @@ add_subdirectory(libs/lock_free)
 add_subdirectory(libs/unix)
 
 # add applications
+add_subdirectory(apps/asynchronous_logger)
 add_subdirectory(apps/consumer_producer_problem)
 add_subdirectory(apps/sleeping_barber_problem)
 
