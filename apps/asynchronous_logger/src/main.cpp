@@ -31,8 +31,10 @@ namespace async
 
         std::atomic<bool> stop_flag{false};
         message_queue_type &message_queue_;
-        const unix::ipc::system_v::group_notifier &read_message_bytes_notifier_;
-        const unix::ipc::system_v::group_notifier &written_message_count_notifier_;
+        unix::ipc::system_v::group_notifier read_message_bytes_notifier_;
+        unix::ipc::system_v::group_notifier written_message_count_notifier_;
+        std::atomic<std::int32_t> retry_pop_count_{0};
+        std::atomic<std::int32_t> pop_count_{0};
 
     public:
         explicit writer_group(
@@ -83,7 +85,9 @@ namespace async
                         return;
                     }
                     std::println("failed to pop message, trying again");
+                    retry_pop_count_.fetch_add(1, std::memory_order_relaxed);
                 }
+                pop_count_.fetch_add(1, std::memory_order_relaxed);
                 const auto read_bytes =
                     message_queue_type::required_message_storage(message.size());
                 const auto read_message = read_message_bytes_notifier_.notify(read_bytes);
@@ -101,6 +105,16 @@ namespace async
         }
 
         void stop() noexcept { stop_flag.store(true, std::memory_order_release); }
+
+        std::size_t retry_pop_count() const noexcept
+        {
+            return retry_pop_count_.load(std::memory_order_relaxed);
+        }
+
+        std::size_t popped_count() const noexcept
+        {
+            return pop_count_.load(std::memory_order_relaxed);
+        }
     };
 
     template <class First, class... Rest>
@@ -152,6 +166,8 @@ namespace async
         unix::ipc::system_v::group_notifier read_message_bytes_notifier_;
         unix::ipc::system_v::group_notifier written_message_count_notifier_;
         writers_type writers_;
+        std::int32_t retry_push_count_{0};
+        std::int32_t pushed_count_{0};
 
         static constexpr std::size_t sem_count{2};
         static constexpr std::size_t read_message_bytes_sem_index{0};
@@ -268,7 +284,9 @@ namespace async
                     return false;
                 }
                 std::println("failed to push message, trying again");
+                retry_push_count_++;
             }
+            pushed_count_++;
             const auto message_written = written_message_count_notifier_.notify_one();
 
             if (!message_written)
@@ -279,6 +297,30 @@ namespace async
             }
             return true;
         }
+
+        bool wait_till_all_popped() noexcept
+        {
+            const auto all_logged = read_message_bytes_notifier_.wait_for_all();
+
+            if (!all_logged)
+            {
+                std::println("failed waiting for all messages being read due to: {}",
+                             unix::to_string(all_logged.error()));
+                return false;
+            }
+            return true;
+        }
+
+        std::size_t retry_push_count() const noexcept { return retry_push_count_; }
+
+        std::size_t retry_pop_count() const noexcept
+        {
+            return writers_.retry_pop_count();
+        }
+
+        std::size_t pushed_count() const noexcept { return pushed_count_; }
+
+        std::size_t popped_count() const noexcept { return writers_.popped_count(); }
     };
 } // namespace async
 
@@ -287,6 +329,7 @@ int main(int, char **)
     constexpr std::size_t writer_count{7}, message_queue_capacity{2'048},
         message_count{1'000}, sem_count{2}, read_message_bytes_sem_index{0},
         written_message_sem_index{1};
+
     auto logger_created =
         async::logger<writer_count, message_queue_capacity>::create();
 
@@ -299,9 +342,25 @@ int main(int, char **)
 
     for (std::size_t index{0}; index < message_count; ++index)
     {
-        logger.log("The quick brown fox jumps over the lazy dog while enjoying a "
-                   "sunny day in the park, watching the birds soar across the sky.",
-                   42, 24.5);
-        std::this_thread::sleep_for(1ms);
+        const auto logged = logger.log(
+            "The quick brown fox jumps over the lazy dog while enjoying a "
+            "sunny day in the park, watching the birds soar across the sky.",
+            42, 24.5);
+
+        if (!logged)
+        {
+            std::println("failed to make a log");
+            return EXIT_FAILURE;
+        }
+        std::this_thread::sleep_for(std::chrono::nanoseconds{16});
     }
+    if (!logger.wait_till_all_popped())
+    {
+        return EXIT_FAILURE;
+    }
+    std::println("retry push count: {}", logger.retry_push_count());
+    std::println("retry pop count: {}", logger.retry_pop_count());
+    std::println("pushed count: {}", logger.pushed_count());
+    std::println("popped count: {}", logger.popped_count());
+    return EXIT_SUCCESS;
 }
