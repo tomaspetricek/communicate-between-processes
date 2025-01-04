@@ -11,6 +11,7 @@
 #include <thread>
 #include <utility>
 
+#include "core/error_code.hpp"
 #include "lock_free/message_ring_buffer.hpp"
 #include "unix/error_code.hpp"
 #include "unix/ipc/system_v/group_notifier.hpp"
@@ -62,9 +63,26 @@ namespace async
                 {
                     return;
                 }
-                // ToDo: check the failure reason
-                while (!message_queue_.try_pop(message))
+                bool popped{false};
+
+                while (!popped)
                 {
+                    const auto message_popped = message_queue_.try_pop(message);
+
+                    if (message_popped)
+                    {
+                        popped = true;
+                        continue;
+                    }
+                    const auto error = message_popped.error();
+
+                    if (error != core::error_code::again)
+                    {
+                        std::println("failed to pop message due to: {}",
+                                     core::to_string(error).data());
+                        return;
+                    }
+                    std::println("failed to pop message, trying again");
                 }
                 const auto read_bytes =
                     message_queue_type::required_message_storage(message.size());
@@ -76,7 +94,8 @@ namespace async
                                  unix::to_string(read_message.error()));
                     return;
                 }
-                std::println("id: {}, msg: {}", writer_id,
+                std::this_thread::sleep_for(3ms);
+                std::println("id: {}, msg ({}): {}", writer_id, message.size(),
                              std::string_view{message.data(), message.size()});
             }
         }
@@ -104,9 +123,9 @@ namespace async
         void append(std::span<const char> values) noexcept
         {
             assert((size_ + values.size()) <= Capacity);
+            const auto min_size = std::min(values.size(), data_.size() - size_);
 
-            for (std::size_t index{0};
-                 index < std::min(values.size(), data_.size() - size_); ++index)
+            for (std::size_t index{0}; index < min_size; ++index)
             {
                 data_[size_++] = values[index];
             }
@@ -139,11 +158,12 @@ namespace async
         static constexpr std::size_t written_message_sem_index{1};
 
     public:
-        explicit logger(
-            const unix::ipc::system_v::semaphore_set &semaphores) noexcept
+        explicit logger(const unix::ipc::system_v::semaphore_set &semaphores) noexcept
             : semaphores_{std::move(semaphores)},
-              read_message_bytes_notifier_{semaphores_, read_message_bytes_sem_index, MessageQueueCapacity},
-              written_message_count_notifier_{semaphores_, written_message_sem_index, WriterCount},
+              read_message_bytes_notifier_{semaphores_, read_message_bytes_sem_index,
+                                           MessageQueueCapacity},
+              written_message_count_notifier_{semaphores_, written_message_sem_index,
+                                              WriterCount},
               writers_{message_queue_, read_message_bytes_notifier_,
                        written_message_count_notifier_}
         {
@@ -216,6 +236,7 @@ namespace async
             constexpr std::size_t message_size = Size;
             message_buffer<message_size> message;
             message.append(format);
+            assert(Size == message.size());
 
             const auto read_bytes =
                 message_queue_type::required_message_storage(message.size());
@@ -227,9 +248,26 @@ namespace async
                              unix::to_string(message_read.error()));
                 return false;
             }
-            // ToDo: check the failure reason
-            while (!message_queue_.try_push(message.span()))
+            bool pushed{false};
+
+            while (!pushed)
             {
+                const auto message_pushed = message_queue_.try_push(message.span());
+
+                if (message_pushed)
+                {
+                    pushed = true;
+                    continue;
+                }
+                const auto &error = message_pushed.error();
+
+                if (error != core::error_code::again)
+                {
+                    std::println("failed to push message due to {}",
+                                 core::to_string(error).data());
+                    return false;
+                }
+                std::println("failed to push message, trying again");
             }
             const auto message_written = written_message_count_notifier_.notify_one();
 
@@ -246,8 +284,8 @@ namespace async
 
 int main(int, char **)
 {
-    constexpr std::size_t writer_count{4}, message_queue_capacity{1'024},
-        message_count{100}, sem_count{2}, read_message_bytes_sem_index{0},
+    constexpr std::size_t writer_count{7}, message_queue_capacity{2'048},
+        message_count{1'000}, sem_count{2}, read_message_bytes_sem_index{0},
         written_message_sem_index{1};
     auto logger_created =
         async::logger<writer_count, message_queue_capacity>::create();
@@ -261,7 +299,9 @@ int main(int, char **)
 
     for (std::size_t index{0}; index < message_count; ++index)
     {
-        logger.log("hello {}", 42, 24.5);
-        std::this_thread::sleep_for(5ms);
+        logger.log("The quick brown fox jumps over the lazy dog while enjoying a "
+                   "sunny day in the park, watching the birds soar across the sky.",
+                   42, 24.5);
+        std::this_thread::sleep_for(1ms);
     }
 }

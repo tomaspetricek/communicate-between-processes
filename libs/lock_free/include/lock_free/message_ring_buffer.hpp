@@ -3,9 +3,12 @@
 
 #include <array>
 #include <atomic>
-#include <span>
+#include <expected>
 #include <vector>
+#include <span>
 #include <type_traits>
+
+#include "core/error_code.hpp"
 
 namespace lock_free
 {
@@ -60,7 +63,7 @@ namespace lock_free
             return sizeof(std::size_t) + message_size;
         }
 
-        bool try_push(std::span<const char> message) noexcept
+        std::expected<void, core::error_code> try_push(std::span<const char> message) noexcept
         {
             auto write_idx = write_idx_.load(std::memory_order_relaxed);
             const auto read_idx = read_idx_.load(std::memory_order_acquire);
@@ -69,7 +72,7 @@ namespace lock_free
             // check if is full
             if (write_idx + 1 == read_idx)
             {
-                return false;
+                return std::unexpected{core::error_code::full};
             }
             const auto available_mem =
                 (read_idx <= write_idx) ? ((buffer_.size() - write_idx) + read_idx - 1)
@@ -78,7 +81,7 @@ namespace lock_free
             // check if enough space
             if (available_mem < required_mem)
             {
-                return false;
+                return std::unexpected{core::error_code::not_enough_space};
             }
             const auto next_write_idx = (write_idx + required_mem) % buffer_.size();
 
@@ -86,24 +89,24 @@ namespace lock_free
                     write_idx, next_write_idx, std::memory_order_release,
                     std::memory_order_relaxed))
             {
-                return false;
+                return std::unexpected{core::error_code::again};
             }
             const auto message_size = message.size();
             write(write_idx,
                   std::span<const char>{reinterpret_cast<const char *>(&message_size),
                                         sizeof(std::size_t)});
             write(write_idx, std::span<const char>{message.data(), message.size()});
-            return true;
+            return std::expected<void, core::error_code>{};
         }
 
-        bool try_pop(std::vector<char> &message)
+        std::expected<void, core::error_code> try_pop(std::vector<char> &message)
         {
             auto read_idx = read_idx_.load(std::memory_order_relaxed);
 
             // check if is empty
             if (read_idx == write_idx_.load(std::memory_order_acquire))
             {
-                return false;
+                return std::unexpected{core::error_code::empty};
             }
             std::size_t size;
             auto msg_read_idx = read_idx;
@@ -119,11 +122,11 @@ namespace lock_free
                     read_idx, next_read_idx, std::memory_order_release,
                     std::memory_order_relaxed))
             {
-                return false;
+                return std::unexpected{core::error_code::again};
             }
             message.assign(size, '\0');
             read(msg_read_idx, std::span<char>{message.data(), size});
-            return true;
+            return std::expected<void, core::error_code>{};
         }
 
         bool empty() const
