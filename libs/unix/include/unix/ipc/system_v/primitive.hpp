@@ -7,13 +7,6 @@ namespace unix::ipc::system_v
     {
     protected:
         explicit primitive() noexcept = default;
-
-    public:
-        primitive(const primitive &other) = delete;
-        primitive &operator=(const primitive &other) = delete;
-
-        primitive(primitive &&other) noexcept = delete;
-        primitive &operator=(primitive &&other) noexcept = delete;
     };
 }
 

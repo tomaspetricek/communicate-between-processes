@@ -13,7 +13,7 @@ namespace unix::ipc::system_v
     class group_notifier
     {
     public:
-        explicit group_notifier(semaphore_set &semaphores,
+        explicit group_notifier(const semaphore_set &semaphores,
                                 semaphore_index_t semaphore_index,
                                 semaphore_value_t group_size) noexcept
             : semaphores_{semaphores}, index_{semaphore_index},
@@ -66,7 +66,7 @@ namespace unix::ipc::system_v
         }
 
     private:
-        semaphore_set &semaphores_;
+        semaphore_set semaphores_;
         semaphore_index_t index_;
         semaphore_value_t group_size_;
     };
