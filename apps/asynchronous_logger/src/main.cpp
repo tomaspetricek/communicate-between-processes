@@ -13,6 +13,7 @@
 #include <span>
 #include <string_view>
 #include <thread>
+#include <tuple>
 #include <utility>
 
 #include "core/error_code.hpp"
@@ -34,10 +35,12 @@ namespace async
 
     public:
         template <class Value>
-        Value &read() noexcept
+        Value read() noexcept
         {
             assert((buffer_.size() - read_count_) >= sizeof(Value));
-            auto &value = reinterpret_cast<Value *>(buffer_.data() + read_count_);
+            const void *data =
+                reinterpret_cast<std::byte *>(buffer_.data()) + read_count_;
+            const auto value = *reinterpret_cast<const std::size_t *>(data);
             read_count_ += sizeof(Value);
             return value;
         }
@@ -47,8 +50,8 @@ namespace async
         {
             const auto total_size = sizeof(Value) * size;
             assert((buffer_.size() - read_count_) >= total_size);
-            const auto array = std::span<Value>{
-                reinterpret_cast<Value *>(buffer_.data() + read_count_), size};
+            void *data = reinterpret_cast<std::byte *>(buffer_.data()) + read_count_;
+            const auto array = std::span<Value>{reinterpret_cast<Value *>(data), size};
             read_count_ += total_size;
             return array;
         }
@@ -149,10 +152,10 @@ namespace async
                 std::println("[{}] formatting log", writer_id);
                 std::this_thread::sleep_for(3ms);
 
-                const auto content = std::string_view{message.read<char>(message.size())};
-                assert(message.all_read());
-                std::println("[{}] received ({}): {}", writer_id, content.size(),
-                             content);
+                const auto format_size = message.read<std::size_t>();
+                const auto format = message.read<char>(format_size);
+                std::println("[{}] received ({}): {}", writer_id, format.size(),
+                             std::string_view{format.data(), format.size()});
             }
         }
 
@@ -185,12 +188,26 @@ namespace async
         std::array<lock_free::message_t, Capacity> buffer_ = {};
 
     public:
-        void write(std::span<const char> values) noexcept
+        template <class Value>
+        void write(const std::span<const Value> &values) noexcept
         {
-            assert((size_ + values.size()) <= Capacity);
-            const auto min_size = std::min(values.size(), buffer_.size() - size_);
-            std::memcpy(buffer_.data() + size_, values.data(), min_size);
-            size_ += values.size();
+            const auto total_size = sizeof(Value) * values.size();
+            assert((size_ + total_size) <= Capacity);
+            const auto min_size = std::min(total_size, buffer_.size() - size_);
+            std::byte *buff = reinterpret_cast<std::byte *>(buffer_.data());
+            std::memcpy(buff + size_, values.data(), min_size);
+            size_ += min_size;
+        }
+
+        template <class Value>
+        void write(const Value &value) noexcept
+        {
+            const auto size = sizeof(Value);
+            assert((size_ + size) <= Capacity);
+            const auto min_size = std::min(size, buffer_.size() - size_);
+            std::byte *buff = reinterpret_cast<std::byte *>(buffer_.data());
+            std::memcpy(buff + size_, &value, min_size);
+            size_ += min_size;
         }
 
         std::size_t size() const noexcept { return size_; }
@@ -199,7 +216,25 @@ namespace async
         {
             return std::span<const lock_free::message_t>{buffer_.data(), size_};
         }
+
+        bool full() const noexcept { return size_ == Capacity; }
     };
+
+    template <std::size_t Index, std::size_t Count, class Last>
+    void fill_buffer(input_message_buffer<Count> &buffer, Last &&last) noexcept
+    {
+        buffer.write(last);
+        assert(buffer.full());
+    }
+
+    template <std::size_t Index = 0, std::size_t Count, class First, class... Rest>
+    void fill_buffer(input_message_buffer<Count> &buffer, First &&first,
+                     Rest &&...rest) noexcept
+    {
+        buffer.write(first);
+        return fill_buffer<Index + 1, Count, Rest...>(buffer,
+                                                      std::forward<Rest>(rest)...);
+    }
 
     template <std::size_t WriterCount, std::size_t MessageQueueCapacity>
     class logger
@@ -295,12 +330,17 @@ namespace async
         }
 
         template <std::size_t Size, class... Args>
-        bool log(const char (&format)[Size], const Args &...args) noexcept
+        bool log(const char (&format)[Size], Args &&...args) noexcept
         {
-            constexpr std::size_t message_size = Size;
+            static_assert(Size > 0);
+            const auto format_size = Size - 1;
+            constexpr std::size_t message_size =
+                sizeof(std::size_t) + (sizeof(char) * format_size) + size_of<Args...>();
             input_message_buffer<message_size> message;
-            message.write(format);
-            assert(Size == message.size());
+            fill_buffer(message, format_size,
+                        std::span<const char>{format, format_size},
+                        std::forward<Args>(args)...);
+            assert(message_size == message.size());
 
             const auto read_bytes =
                 message_queue_type::required_message_storage(message.size());
@@ -374,6 +414,10 @@ namespace async
 
 int main(int, char **)
 {
+    constexpr std::size_t capacity = sizeof(std::int32_t) + sizeof(float);
+    async::input_message_buffer<capacity> buffer;
+    async::fill_buffer(buffer, std::int32_t{10}, float{6.7});
+
     const auto output_file_path =
         std::string_view{"/Users/tomaspetricek/Documents/repos/"
                          "communicate-between-processes/logs/async_logger.log"};
