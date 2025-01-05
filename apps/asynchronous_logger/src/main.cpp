@@ -30,8 +30,35 @@ namespace async
     class output_message_buffer
     {
         std::vector<lock_free::message_t> buffer_;
+        std::size_t read_count_{0};
 
     public:
+        template <class Value>
+        Value &read() noexcept
+        {
+            assert((buffer_.size() - read_count_) >= sizeof(Value));
+            auto &value = reinterpret_cast<Value *>(buffer_.data() + read_count_);
+            read_count_ += sizeof(Value);
+            return value;
+        }
+
+        template <class Value>
+        std::span<Value> read(std::size_t size) noexcept
+        {
+            const auto total_size = sizeof(Value) * size;
+            assert((buffer_.size() - read_count_) >= total_size);
+            const auto array = std::span<Value>{
+                reinterpret_cast<Value *>(buffer_.data() + read_count_), size};
+            read_count_ += total_size;
+            return array;
+        }
+
+        std::size_t size() const noexcept { return buffer_.size(); }
+
+        bool all_read() const noexcept { return read_count_ == buffer_.size(); }
+
+        void reset() noexcept { read_count_ = 0; }
+
         std::vector<lock_free::message_t> &buffer() noexcept { return buffer_; }
     };
 
@@ -81,6 +108,7 @@ namespace async
                     std::println("[{}] stop flag received", writer_id);
                     return;
                 }
+                message.reset();
                 bool popped{false};
 
                 while (!popped)
@@ -121,10 +149,9 @@ namespace async
                 std::println("[{}] formatting log", writer_id);
                 std::this_thread::sleep_for(3ms);
 
-                const auto content =
-                    std::string_view{reinterpret_cast<char *>(message.buffer().data()),
-                                     message.buffer().size()};
-                std::println("[{}] received ({}): {}", writer_id, message.buffer().size(),
+                const auto content = std::string_view{message.read<char>(message.size())};
+                assert(message.all_read());
+                std::println("[{}] received ({}): {}", writer_id, content.size(),
                              content);
             }
         }
