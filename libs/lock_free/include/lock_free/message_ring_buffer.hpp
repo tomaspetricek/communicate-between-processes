@@ -125,8 +125,10 @@ namespace lock_free
                  std::span<message_t>{reinterpret_cast<message_t *>(&size),
                                       sizeof(std::size_t)});
 
-            // allocator may throw an exception
-            message.reserve(size);
+            if (size > Capacity)
+            {
+                return std::unexpected{core::error_code::again};
+            }
             const auto total_size = sizeof(std::size_t) + size;
             const auto next_read_idx = (read_idx + total_size) % buffer_.size();
 
@@ -136,8 +138,10 @@ namespace lock_free
             {
                 return std::unexpected{core::error_code::again};
             }
+            read(read_idx, std::span<message_t>{reinterpret_cast<message_t *>(&size),
+                                                sizeof(std::size_t)});
             message.resize(size);
-            read(msg_read_idx, std::span<message_t>{message.data(), size});
+            read(read_idx, std::span<message_t>{message.data(), size});
             return std::expected<void, core::error_code>{};
         }
 
