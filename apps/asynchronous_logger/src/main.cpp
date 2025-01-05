@@ -7,6 +7,7 @@
 #include <expected>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <print>
@@ -59,6 +60,12 @@ namespace async
         std::size_t size() const noexcept { return buffer_.size(); }
 
         bool all_read() const noexcept { return read_count_ == buffer_.size(); }
+
+        std::size_t remaining() const noexcept
+        {
+            assert(read_count_ < buffer_.size());
+            return buffer_.size() - read_count_;
+        }
 
         void reset() noexcept { read_count_ = 0; }
 
@@ -152,10 +159,10 @@ namespace async
                 std::println("[{}] formatting log", writer_id);
                 std::this_thread::sleep_for(3ms);
 
-                const auto format_size = message.read<std::size_t>();
-                const auto format = message.read<char>(format_size);
-                std::println("[{}] received ({}): {}", writer_id, format.size(),
-                             std::string_view{format.data(), format.size()});
+                const auto format_func_addr = message.read<uintptr_t>();
+                void (*format_func)(output_message_buffer &) =
+                    reinterpret_cast<void (*)(output_message_buffer &)>(format_func_addr);
+                format_func(message);
             }
         }
 
@@ -177,9 +184,6 @@ namespace async
     {
         return (sizeof(First) + ... + sizeof(Rest));
     }
-
-    template <class... Args>
-    static void format_string(const char *, const Args &...args) {}
 
     template <std::size_t Capacity>
     class input_message_buffer
@@ -219,6 +223,29 @@ namespace async
 
         bool full() const noexcept { return size_ == Capacity; }
     };
+
+    template <std::size_t Index = 0, class... Values>
+    void read_values(output_message_buffer &buffer,
+                     std::tuple<Values...> &values) noexcept
+    {
+        if constexpr (Index < sizeof...(Values))
+        {
+            std::get<Index>(values) = buffer.read<
+                typename std::tuple_element<Index, std::tuple<Values...>>::type>();
+            return read_values<Index + 1, Values...>(buffer, values);
+        }
+    }
+
+    template <class... Values>
+    static void format_message(output_message_buffer &message) noexcept
+    {
+        std::tuple<Values...> values;
+        read_values(message, values);
+        const auto format = message.read<char>(message.remaining());
+        std::apply([&format](auto &&...vals)
+                   { std::printf(format.data(), vals...); },
+                   values);
+    }
 
     template <std::size_t Index, std::size_t Count, class Last>
     void fill_buffer(input_message_buffer<Count> &buffer, Last &&last) noexcept
@@ -335,11 +362,10 @@ namespace async
             static_assert(Size > 0);
             const auto format_size = Size - 1;
             constexpr std::size_t message_size =
-                sizeof(std::size_t) + (sizeof(char) * format_size) + size_of<Args...>();
+                sizeof(uintptr_t >) + size_of<Args...>() + (sizeof(char) * format_size);
             input_message_buffer<message_size> message;
-            fill_buffer(message, format_size,
-                        std::span<const char>{format, format_size},
-                        std::forward<Args>(args)...);
+            fill_buffer(message, &format_message<Args...>, std::forward<Args>(args)...,
+                        std::span<const char>{format, format_size});
             assert(message_size == message.size());
 
             const auto read_bytes =
@@ -448,8 +474,9 @@ int main(int, char **)
         {
             const auto logged = logger.log(
                 "The quick brown fox jumps over the lazy dog while enjoying a "
-                "sunny day in the park, watching the birds soar across the sky.",
-                42, 24.5);
+                "sunny day in the park, watching the birds soar across the sky. %d, "
+                "%d\n",
+                std::int32_t{42}, std::int32_t{24});
 
             if (!logged)
             {
