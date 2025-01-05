@@ -157,8 +157,6 @@ namespace async
                     return;
                 }
                 std::println("[{}] formatting log", writer_id);
-                std::this_thread::sleep_for(3ms);
-
                 const auto format_func_addr = message.read<uintptr_t>();
                 void (*format_func)(output_message_buffer &) =
                     reinterpret_cast<void (*)(output_message_buffer &)>(format_func_addr);
@@ -179,10 +177,14 @@ namespace async
         }
     };
 
-    template <class First, class... Rest>
+    template <class... Values>
     constexpr std::size_t size_of() noexcept
     {
-        return (sizeof(First) + ... + sizeof(Rest));
+        if constexpr (sizeof...(Values) > 0)
+        {
+            return (sizeof(Values) + ...);
+        }
+        return std::size_t{0};
     }
 
     template <std::size_t Capacity>
@@ -362,9 +364,9 @@ namespace async
             static_assert(Size > 0);
             const auto format_size = Size - 1;
             constexpr std::size_t message_size =
-                sizeof(uintptr_t >) + size_of<Args...>() + (sizeof(char) * format_size);
+                sizeof(uintptr_t) + size_of<Args...>() + (sizeof(char) * format_size);
             input_message_buffer<message_size> message;
-            fill_buffer(message, &format_message<Args...>, std::forward<Args>(args)...,
+            fill_buffer(message, &format_message<std::decay_t<Args>...>, std::forward<Args>(args)...,
                         std::span<const char>{format, format_size});
             assert(message_size == message.size());
 
@@ -473,17 +475,15 @@ int main(int, char **)
         for (std::size_t index{0}; index < message_count; ++index)
         {
             const auto logged = logger.log(
-                "The quick brown fox jumps over the lazy dog while enjoying a "
-                "sunny day in the park, watching the birds soar across the sky. %d, "
-                "%d\n",
-                std::int32_t{42}, std::int32_t{24});
+                "%d: The quick brown fox jumps over the lazy dog while enjoying a "
+                "sunny day in the park, watching the birds soar across the sky",
+                index);
 
             if (!logged)
             {
                 std::println("failed to make a log");
                 return EXIT_FAILURE;
             }
-            std::this_thread::sleep_for(std::chrono::nanoseconds{16});
         }
         std::println("message generation done");
 
