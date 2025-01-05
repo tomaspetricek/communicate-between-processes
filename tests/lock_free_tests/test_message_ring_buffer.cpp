@@ -41,7 +41,7 @@ TEST(MessageRingBuffer, TestPushingPoppingMessages)
     constexpr auto buffer_capacity = compute_buffer_min_capacity(input_messages);
     constexpr std::size_t it_count{10};
     lock_free::message_ring_buffer<buffer_capacity> queue;
-    std::vector<char> out_msg;
+    std::vector<lock_free::message_t> out_msg;
     out_msg.reserve(10);
 
     for (std::size_t i{0}; i < it_count; ++i)
@@ -51,7 +51,9 @@ TEST(MessageRingBuffer, TestPushingPoppingMessages)
         for (const auto &msg : input_messages)
         {
             assert(!queue.full());
-            assert(queue.try_push(msg));
+            assert(queue.try_push(std::span<const lock_free::message_t>{
+                reinterpret_cast<const lock_free::message_t *>(msg.data()),
+                msg.size()}));
             assert(!queue.empty());
         }
         assert(queue.full());
@@ -59,10 +61,15 @@ TEST(MessageRingBuffer, TestPushingPoppingMessages)
         for (const auto &in_msg : input_messages)
         {
             assert(!queue.empty());
+
+            if (i == 2) {
+                std::println("hello");
+            }
             assert(queue.try_pop(out_msg));
             assert(!queue.full());
             are_same(message_view(in_msg.data(), in_msg.size()),
-                     message_view(out_msg.data(), out_msg.size()));
+                     message_view(reinterpret_cast<char *>(out_msg.data()),
+                                  out_msg.size()));
         }
         assert(queue.empty());
     }

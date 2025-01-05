@@ -4,19 +4,23 @@
 #include <array>
 #include <atomic>
 #include <expected>
-#include <vector>
 #include <span>
 #include <type_traits>
+#include <vector>
 
 #include "core/error_code.hpp"
 
 namespace lock_free
 {
+    using message_t =
+        std::aligned_storage_t<sizeof(char), alignof(std::max_align_t)>;
+
     template <std::size_t Capacity>
     class message_ring_buffer
     {
         template <class Copy>
-        void copy_data(std::size_t &buffer_idx, std::size_t count, Copy copy) noexcept
+        void copy_data(std::size_t &buffer_idx, std::size_t count,
+                       Copy copy) noexcept
         {
             const auto tail_size = std::min(count, buffer_.size() - buffer_idx);
             copy(buffer_idx, tail_size);
@@ -35,20 +39,22 @@ namespace lock_free
         }
 
         void write(std::size_t &write_idx,
-                   const std::span<const char> &bytes) noexcept
+                   const std::span<const message_t> &bytes) noexcept
         {
-            const char *output{bytes.data()};
-            copy_data(write_idx, bytes.size(),
-                      [&output, this](std::size_t buffer_idx, std::size_t size) -> void
-                      {
-                          std::memcpy(buffer_.data() + buffer_idx, output, size);
-                          output += size;
-                      });
+            const std::byte *output = reinterpret_cast<const std::byte *>(bytes.data());
+            copy_data(
+                write_idx, bytes.size(),
+                [&output, this](std::size_t buffer_idx, std::size_t size) -> void
+                {
+                    std::memcpy(buffer_.data() + buffer_idx, output, size);
+                    output += size;
+                });
         }
 
-        void read(std::size_t &read_idx, const std::span<char> &bytes) noexcept
+        void read(std::size_t &read_idx, const std::span<message_t> &bytes) noexcept
         {
-            char *input{bytes.data()};
+            assert((read_idx < Capacity) && "read index >= capacity");
+            std::byte *input = reinterpret_cast<std::byte *>(bytes.data());
             copy_data(read_idx, bytes.size(),
                       [&input, this](std::size_t buffer_idx, std::size_t size) -> void
                       {
@@ -58,12 +64,14 @@ namespace lock_free
         }
 
     public:
-        static constexpr std::size_t required_message_storage(std::size_t message_size) noexcept
+        static constexpr std::size_t
+        required_message_storage(std::size_t message_size) noexcept
         {
             return sizeof(std::size_t) + message_size;
         }
 
-        std::expected<void, core::error_code> try_push(std::span<const char> message) noexcept
+        std::expected<void, core::error_code>
+        try_push(std::span<const message_t> message) noexcept
         {
             auto write_idx = write_idx_.load(std::memory_order_relaxed);
             const auto read_idx = read_idx_.load(std::memory_order_acquire);
@@ -85,21 +93,24 @@ namespace lock_free
             }
             const auto next_write_idx = (write_idx + required_mem) % buffer_.size();
 
-            if (!write_idx_.compare_exchange_strong(
-                    write_idx, next_write_idx, std::memory_order_release,
-                    std::memory_order_relaxed))
+            if (!write_idx_.compare_exchange_strong(write_idx, next_write_idx,
+                                                    std::memory_order_release,
+                                                    std::memory_order_relaxed))
             {
                 return std::unexpected{core::error_code::again};
             }
             const auto message_size = message.size();
+            write(write_idx, std::span<const message_t>{
+                                 reinterpret_cast<const message_t *>(&message_size),
+                                 sizeof(std::size_t)});
             write(write_idx,
-                  std::span<const char>{reinterpret_cast<const char *>(&message_size),
-                                        sizeof(std::size_t)});
-            write(write_idx, std::span<const char>{message.data(), message.size()});
+                  std::span<const message_t>{message.data(), message.size()});
+            assert((write_idx == next_write_idx));
             return std::expected<void, core::error_code>{};
         }
 
-        std::expected<void, core::error_code> try_pop(std::vector<char> &message)
+        std::expected<void, core::error_code>
+        try_pop(std::vector<message_t> &message)
         {
             auto read_idx = read_idx_.load(std::memory_order_relaxed);
 
@@ -108,24 +119,25 @@ namespace lock_free
             {
                 return std::unexpected{core::error_code::empty};
             }
-            std::size_t size;
-            auto msg_read_idx = read_idx;
+            std::size_t size{0};
+            std::size_t msg_read_idx = read_idx;
             read(msg_read_idx,
-                 std::span<char>{reinterpret_cast<char *>(&size), sizeof(std::size_t)});
+                 std::span<message_t>{reinterpret_cast<message_t *>(&size),
+                                      sizeof(std::size_t)});
 
             // allocator may throw an exception
             message.reserve(size);
             const auto total_size = sizeof(std::size_t) + size;
             const auto next_read_idx = (read_idx + total_size) % buffer_.size();
 
-            if (!read_idx_.compare_exchange_strong(
-                    read_idx, next_read_idx, std::memory_order_release,
-                    std::memory_order_relaxed))
+            if (!read_idx_.compare_exchange_strong(read_idx, next_read_idx,
+                                                   std::memory_order_release,
+                                                   std::memory_order_relaxed))
             {
                 return std::unexpected{core::error_code::again};
             }
-            message.assign(size, '\0');
-            read(msg_read_idx, std::span<char>{message.data(), size});
+            message.resize(size);
+            read(msg_read_idx, std::span<message_t>{message.data(), size});
             return std::expected<void, core::error_code>{};
         }
 
@@ -144,11 +156,8 @@ namespace lock_free
         static constexpr std::size_t capacity() noexcept { return Capacity; }
 
     private:
-        using buffer_type =
-            std::aligned_storage_t<sizeof(char), alignof(std::max_align_t)>;
-        std::array<buffer_type, Capacity> buffer_ = {};
-        alignas(64) std::atomic<std::size_t> read_idx_{0},
-            write_idx_{0};
+        std::array<message_t, Capacity> buffer_ = {};
+        alignas(64) std::atomic<std::size_t> read_idx_{0}, write_idx_{0};
         static_assert(Capacity > 1, "capacity must be greather than one");
     };
 } // namespace lock_free

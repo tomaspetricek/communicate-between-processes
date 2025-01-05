@@ -3,7 +3,11 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstdio>
 #include <expected>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <optional>
 #include <print>
 #include <span>
@@ -23,6 +27,14 @@ using namespace std::literals::chrono_literals;
 
 namespace async
 {
+    class output_message_buffer
+    {
+        std::vector<lock_free::message_t> buffer_;
+
+    public:
+        std::vector<lock_free::message_t> &buffer() noexcept { return buffer_; }
+    };
+
     template <std::size_t MessageQueueCapacity>
     class writer_group
     {
@@ -48,28 +60,33 @@ namespace async
 
         void start(std::size_t writer_id) noexcept
         {
-            std::vector<char> message;
+            output_message_buffer message;
 
             while (true)
             {
+                std::println("[{}] waiting for message being written", writer_id);
                 const auto message_written =
                     written_message_count_notifier_.wait_for_one();
 
                 if (!message_written)
                 {
-                    std::println("failed waiting for message being written due to: {}",
-                                 unix::to_string(message_written.error()));
+                    std::println("[{}] failed waiting for message being written due to: {}",
+                                 writer_id, unix::to_string(message_written.error()));
                     return;
                 }
+                std::println("[{}] message written", writer_id);
+
                 if (stop_flag.load(std::memory_order_acquire))
                 {
+                    std::println("[{}] stop flag received", writer_id);
                     return;
                 }
                 bool popped{false};
 
                 while (!popped)
                 {
-                    const auto message_popped = message_queue_.try_pop(message);
+                    std::println("[{}] popping out message", writer_id);
+                    const auto message_popped = message_queue_.try_pop(message.buffer());
 
                     if (message_popped)
                     {
@@ -80,27 +97,35 @@ namespace async
 
                     if (error != core::error_code::again)
                     {
-                        std::println("failed to pop message due to: {}",
+                        std::println("[{}] failed to pop message due to: {}", writer_id,
                                      core::to_string(error).data());
                         return;
                     }
-                    std::println("failed to pop message, trying again");
+                    std::println("[{}] failed to pop message, trying again", writer_id);
                     retry_pop_count_.fetch_add(1, std::memory_order_relaxed);
                 }
                 pop_count_.fetch_add(1, std::memory_order_relaxed);
+
+                std::println("[{}] notifying about message being read", writer_id);
                 const auto read_bytes =
-                    message_queue_type::required_message_storage(message.size());
+                    message_queue_type::required_message_storage(message.buffer().size());
                 const auto read_message = read_message_bytes_notifier_.notify(read_bytes);
 
                 if (!read_message)
                 {
-                    std::println("failed notifying about message being read due to: {}",
-                                 unix::to_string(read_message.error()));
+                    std::println(
+                        "[{}] failed notifying about message being read due to: {}",
+                        writer_id, unix::to_string(read_message.error()));
                     return;
                 }
+                std::println("[{}] formatting log", writer_id);
                 std::this_thread::sleep_for(3ms);
-                std::println("id: {}, msg ({}): {}", writer_id, message.size(),
-                             std::string_view{message.data(), message.size()});
+
+                const auto content =
+                    std::string_view{reinterpret_cast<char *>(message.buffer().data()),
+                                     message.buffer().size()};
+                std::println("[{}] received ({}): {}", writer_id, message.buffer().size(),
+                             content);
             }
         }
 
@@ -127,29 +152,25 @@ namespace async
     static void format_string(const char *, const Args &...args) {}
 
     template <std::size_t Capacity>
-    class message_buffer
+    class input_message_buffer
     {
-        using data_type = char;
         std::size_t size_{0};
-        std::array<data_type, Capacity> data_ = {};
+        std::array<lock_free::message_t, Capacity> buffer_ = {};
 
     public:
-        void append(std::span<const char> values) noexcept
+        void write(std::span<const char> values) noexcept
         {
             assert((size_ + values.size()) <= Capacity);
-            const auto min_size = std::min(values.size(), data_.size() - size_);
-
-            for (std::size_t index{0}; index < min_size; ++index)
-            {
-                data_[size_++] = values[index];
-            }
+            const auto min_size = std::min(values.size(), buffer_.size() - size_);
+            std::memcpy(buffer_.data() + size_, values.data(), min_size);
+            size_ += values.size();
         }
 
         std::size_t size() const noexcept { return size_; }
 
-        std::span<const char> span() const noexcept
+        std::span<const lock_free::message_t> span() const noexcept
         {
-            return std::span<const char>{data_.data(), size_};
+            return std::span<const lock_free::message_t>{buffer_.data(), size_};
         }
     };
 
@@ -250,8 +271,8 @@ namespace async
         bool log(const char (&format)[Size], const Args &...args) noexcept
         {
             constexpr std::size_t message_size = Size;
-            message_buffer<message_size> message;
-            message.append(format);
+            input_message_buffer<message_size> message;
+            message.write(format);
             assert(Size == message.size());
 
             const auto read_bytes =
@@ -326,41 +347,59 @@ namespace async
 
 int main(int, char **)
 {
-    constexpr std::size_t writer_count{7}, message_queue_capacity{2'048},
-        message_count{1'000}, sem_count{2}, read_message_bytes_sem_index{0},
-        written_message_sem_index{1};
+    const auto output_file_path =
+        std::string_view{"/Users/tomaspetricek/Documents/repos/"
+                         "communicate-between-processes/logs/async_logger.log"};
+    FILE *file = freopen(output_file_path.data(), "w", stdout);
 
-    auto logger_created =
-        async::logger<writer_count, message_queue_capacity>::create();
-
-    if (!logger_created)
+    if (!file)
     {
-        std::println("failed to create async logger");
+        std::cerr << "failed redirecting cout to a file" << std::endl;
         return EXIT_FAILURE;
     }
-    auto &logger = logger_created.value();
-
-    for (std::size_t index{0}; index < message_count; ++index)
+    // redirect to file
     {
-        const auto logged = logger.log(
-            "The quick brown fox jumps over the lazy dog while enjoying a "
-            "sunny day in the park, watching the birds soar across the sky.",
-            42, 24.5);
+        constexpr std::size_t writer_count{7}, message_queue_capacity{2'048},
+            message_count{1'000}, sem_count{2}, read_message_bytes_sem_index{0},
+            written_message_sem_index{1};
 
-        if (!logged)
+        auto logger_created =
+            async::logger<writer_count, message_queue_capacity>::create();
+
+        if (!logger_created)
         {
-            std::println("failed to make a log");
+            std::println("failed to create async logger");
             return EXIT_FAILURE;
         }
-        std::this_thread::sleep_for(std::chrono::nanoseconds{16});
+        auto &logger = logger_created.value();
+
+        for (std::size_t index{0}; index < message_count; ++index)
+        {
+            const auto logged = logger.log(
+                "The quick brown fox jumps over the lazy dog while enjoying a "
+                "sunny day in the park, watching the birds soar across the sky.",
+                42, 24.5);
+
+            if (!logged)
+            {
+                std::println("failed to make a log");
+                return EXIT_FAILURE;
+            }
+            std::this_thread::sleep_for(std::chrono::nanoseconds{16});
+        }
+        std::println("message generation done");
+
+        if (!logger.wait_till_all_popped())
+        {
+            return EXIT_FAILURE;
+        }
+        std::println("retry push count: {}", logger.retry_push_count());
+        std::println("retry pop count: {}", logger.retry_pop_count());
+        std::println("pushed count: {}", logger.pushed_count());
+        std::println("popped count: {}", logger.popped_count());
     }
-    if (!logger.wait_till_all_popped())
-    {
-        return EXIT_FAILURE;
-    }
-    std::println("retry push count: {}", logger.retry_push_count());
-    std::println("retry pop count: {}", logger.retry_pop_count());
-    std::println("pushed count: {}", logger.pushed_count());
-    std::println("popped count: {}", logger.popped_count());
+    // restore stdout to console
+    std::fflush(stdout);
+    std::freopen("/dev/tty", "w", stdout);
     return EXIT_SUCCESS;
 }

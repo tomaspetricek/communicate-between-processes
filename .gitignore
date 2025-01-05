@@ -1,2 +1,4 @@
 build/*
 created-directory
+logs/*
+.DS_Store
