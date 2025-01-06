@@ -458,7 +458,7 @@ int main(int, char **)
     }
     // redirect to file
     {
-        constexpr std::size_t writer_count{4}, message_queue_capacity{10'240},
+        constexpr std::size_t writer_count{3}, message_queue_capacity{10'240},
             message_count{1'000'000}, sem_count{2}, read_message_bytes_sem_index{0},
             written_message_sem_index{1};
 
@@ -475,9 +475,12 @@ int main(int, char **)
         for (std::size_t index{0}; index < message_count; ++index)
         {
             const auto logged = logger.log(
-                "%d: The quick brown fox jumps over the lazy dog while enjoying a "
+                "%zu: The quick brown fox jumps over the lazy dog while enjoying a "
                 "sunny day in the park, watching the birds soar across the sky\n",
                 index);
+            // std::printf("%zu: The quick brown fox jumps over the lazy dog while enjoying a "
+            //     "sunny day in the park, watching the birds soar across the sky\n",
+            //     index);
 
             if (!logged)
             {
@@ -486,7 +489,7 @@ int main(int, char **)
             }
             // std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
-        // std::println("message generation done");
+        std::println("message generation done");
 
         if (!logger.wait_till_all_popped())
         {
