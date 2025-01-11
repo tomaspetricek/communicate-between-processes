@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "core/error_code.hpp"
+#include "lock_free/group_notifier.hpp"
 #include "lock_free/message_ring_buffer.hpp"
 #include "unix/error_code.hpp"
 #include "unix/ipc/system_v/group_notifier.hpp"
@@ -81,7 +82,7 @@ namespace async
         std::atomic<bool> stop_flag{false};
         message_queue_type &message_queue_;
         unix::ipc::system_v::group_notifier read_message_bytes_notifier_;
-        unix::ipc::system_v::group_notifier written_message_count_notifier_;
+        lock_free::group_notifier &written_message_count_notifier_;
         std::atomic<std::int32_t> retry_pop_count_{0};
         std::atomic<std::int32_t> pop_count_{0};
 
@@ -89,8 +90,7 @@ namespace async
         explicit writer_group(
             lock_free::message_ring_buffer<MessageQueueCapacity> &message_queue,
             const unix::ipc::system_v::group_notifier &read_message_bytes_notifier,
-            const unix::ipc::system_v::group_notifier
-                &written_message_count_notifier) noexcept
+            lock_free::group_notifier &written_message_count_notifier) noexcept
             : message_queue_{message_queue},
               read_message_bytes_notifier_{read_message_bytes_notifier},
               written_message_count_notifier_{written_message_count_notifier} {}
@@ -101,21 +101,13 @@ namespace async
 
             while (true)
             {
-                // std::println("[{}] waiting for message being written", writer_id);
-                const auto message_written =
-                    written_message_count_notifier_.wait_for_one();
+                std::println("[{}] waiting for message being written", writer_id);
+                written_message_count_notifier_.wait_for_one();
+                std::println("[{}] message written", writer_id);
 
-                if (!message_written)
+                if (stop_flag.load())
                 {
-                    // std::println("[{}] failed waiting for message being written due to: {}",
-                    //              writer_id, unix::to_string(message_written.error()));
-                    return;
-                }
-                // std::println("[{}] message written", writer_id);
-
-                if (stop_flag.load(std::memory_order_acquire))
-                {
-                    // std::println("[{}] stop flag received", writer_id);
+                    std::println("[{}] stop flag received", writer_id);
                     return;
                 }
                 message.reset();
@@ -123,7 +115,7 @@ namespace async
 
                 while (!popped)
                 {
-                    // std::println("[{}] popping out message", writer_id);
+                    std::println("[{}] popping out message", writer_id);
                     const auto message_popped = message_queue_.try_pop(message.buffer());
 
                     if (message_popped)
@@ -135,28 +127,28 @@ namespace async
 
                     if (error != core::error_code::again)
                     {
-                        // std::println("[{}] failed to pop message due to: {}", writer_id,
-                        //              core::to_string(error).data());
+                        std::println("[{}] failed to pop message due to: {}", writer_id,
+                                     core::to_string(error));
                         return;
                     }
-                    // std::println("[{}] failed to pop message, trying again", writer_id);
+                    std::println("[{}] failed to pop message, trying again", writer_id);
                     retry_pop_count_.fetch_add(1, std::memory_order_relaxed);
                 }
                 pop_count_.fetch_add(1, std::memory_order_relaxed);
 
-                // std::println("[{}] notifying about message being read", writer_id);
+                std::println("[{}] notifying about message being read", writer_id);
                 const auto read_bytes =
                     message_queue_type::required_message_storage(message.buffer().size());
                 const auto read_message = read_message_bytes_notifier_.notify(read_bytes);
 
                 if (!read_message)
                 {
-                    // std::println(
-                    //     "[{}] failed notifying about message being read due to: {}",
-                    //     writer_id, unix::to_string(read_message.error()));
+                    std::println(
+                        "[{}] failed notifying about message being read due to: {}",
+                        writer_id, unix::to_string(read_message.error()));
                     return;
                 }
-                // std::println("[{}] formatting log", writer_id);
+                std::println("[{}] formatting log", writer_id);
                 const auto format_func_addr = message.read<uintptr_t>();
                 void (*format_func)(output_message_buffer &) =
                     reinterpret_cast<void (*)(output_message_buffer &)>(format_func_addr);
@@ -276,22 +268,20 @@ namespace async
         lock_free::message_ring_buffer<MessageQueueCapacity> message_queue_;
         unix::ipc::system_v::semaphore_set semaphores_;
         unix::ipc::system_v::group_notifier read_message_bytes_notifier_;
-        unix::ipc::system_v::group_notifier written_message_count_notifier_;
+        lock_free::group_notifier written_message_count_notifier_;
         writers_type writers_;
         std::int32_t retry_push_count_{0};
         std::int32_t pushed_count_{0};
 
-        static constexpr std::size_t sem_count{2};
+        static constexpr std::size_t sem_count{1};
         static constexpr std::size_t read_message_bytes_sem_index{0};
-        static constexpr std::size_t written_message_sem_index{1};
 
     public:
         explicit logger(const unix::ipc::system_v::semaphore_set &semaphores) noexcept
             : semaphores_{std::move(semaphores)},
               read_message_bytes_notifier_{semaphores_, read_message_bytes_sem_index,
                                            MessageQueueCapacity},
-              written_message_count_notifier_{semaphores_, written_message_sem_index,
-                                              WriterCount},
+              written_message_count_notifier_{0, WriterCount},
               writers_{message_queue_, read_message_bytes_notifier_,
                        written_message_count_notifier_}
         {
@@ -326,30 +316,29 @@ namespace async
 
             if (!semaphores_created)
             {
-                // std::println("failed to create semaphores due to: {}",
-                //              unix::to_string(semaphores_created.error()).data());
+                std::println("failed to create semaphores due to: {}",
+                             unix::to_string(semaphores_created.error()));
                 return std::nullopt;
             }
             auto &semaphores = semaphores_created.value();
 
-            std::array<unsigned short, sem_count> init_values{
-                {MessageQueueCapacity, 0}};
+            std::array<unsigned short, sem_count> init_values{{MessageQueueCapacity}};
             const auto all_initialized = semaphores.set_values(init_values);
 
             if (!all_initialized)
             {
-                // std::println("failed to initialize semaphore set valued: {}",
-                //              unix::to_string(all_initialized.error()).data());
+                std::println("failed to initialize semaphore set valued: {}",
+                             unix::to_string(all_initialized.error()));
                 return std::nullopt;
             }
-            // std::println("all semaphores from the set initialized");
+            std::println("all semaphores from the set initialized");
             return std::optional<logger>{std::in_place, semaphores};
         }
 
         ~logger() noexcept
         {
-            written_message_count_notifier_.notify_all();
             writers_.stop();
+            written_message_count_notifier_.notify_all();
 
             for (auto &thread : threads_)
             {
@@ -366,7 +355,8 @@ namespace async
             constexpr std::size_t message_size =
                 sizeof(uintptr_t) + size_of<Args...>() + (sizeof(char) * format_size);
             input_message_buffer<message_size> message;
-            fill_buffer(message, &format_message<std::decay_t<Args>...>, std::forward<Args>(args)...,
+            fill_buffer(message, &format_message<std::decay_t<Args>...>,
+                        std::forward<Args>(args)...,
                         std::span<const char>{format, format_size});
             assert(message_size == message.size());
 
@@ -395,22 +385,15 @@ namespace async
 
                 if (error != core::error_code::again)
                 {
-                    // std::println("failed to push message due to {}",
-                    //              core::to_string(error).data());
+                    std::println("failed to push message due to {}",
+                                 core::to_string(error));
                     return false;
                 }
-                // std::println("failed to push message, trying again");
+                std::println("failed to push message, trying again");
                 retry_push_count_++;
             }
             pushed_count_++;
-            const auto message_written = written_message_count_notifier_.notify_one();
-
-            if (!message_written)
-            {
-                // std::println("failed notifying about message being written due to: {}",
-                //              unix::to_string(message_written.error()));
-                return false;
-            }
+            written_message_count_notifier_.notify_one();
             return true;
         }
 
@@ -420,8 +403,8 @@ namespace async
 
             if (!all_logged)
             {
-                // std::println("failed waiting for all messages being read due to: {}",
-                //              unix::to_string(all_logged.error()));
+                std::println("failed waiting for all messages being read due to: {}",
+                             unix::to_string(all_logged.error()));
                 return false;
             }
             return true;
@@ -442,23 +425,20 @@ namespace async
 
 int main(int, char **)
 {
-    constexpr std::size_t capacity = sizeof(std::int32_t) + sizeof(float);
-    async::input_message_buffer<capacity> buffer;
-    async::fill_buffer(buffer, std::int32_t{10}, float{6.7});
-
     const auto output_file_path =
         std::string_view{"/Users/tomaspetricek/Documents/repos/"
                          "communicate-between-processes/logs/async_logger.log"};
+
+    std::println("redirecting file");
     FILE *file = freopen(output_file_path.data(), "w", stdout);
 
     if (!file)
     {
-        // std::cerr << "failed redirecting cout to a file" << std::endl;
+        std::cerr << "failed redirecting cout to a file" << std::endl;
         return EXIT_FAILURE;
     }
-    // redirect to file
     {
-        constexpr std::size_t writer_count{3}, message_queue_capacity{10'240},
+        constexpr std::size_t writer_count{1}, message_queue_capacity{10'240},
             message_count{1'000'000}, sem_count{2}, read_message_bytes_sem_index{0},
             written_message_sem_index{1};
 
@@ -467,7 +447,7 @@ int main(int, char **)
 
         if (!logger_created)
         {
-            // std::println("failed to create async logger");
+            std::println("failed to create async logger");
             return EXIT_FAILURE;
         }
         auto &logger = logger_created.value();
@@ -478,16 +458,16 @@ int main(int, char **)
                 "%zu: The quick brown fox jumps over the lazy dog while enjoying a "
                 "sunny day in the park, watching the birds soar across the sky\n",
                 index);
-            // std::printf("%zu: The quick brown fox jumps over the lazy dog while enjoying a "
+            // std::printf("%zu: The quick brown fox jumps over the lazy dog while
+            // enjoying a "
             //     "sunny day in the park, watching the birds soar across the sky\n",
             //     index);
 
             if (!logged)
             {
-                // std::println("failed to make a log");
+                std::println("failed to make a log");
                 return EXIT_FAILURE;
             }
-            // std::this_thread::sleep_for(std::chrono::milliseconds{1});
         }
         std::println("message generation done");
 
