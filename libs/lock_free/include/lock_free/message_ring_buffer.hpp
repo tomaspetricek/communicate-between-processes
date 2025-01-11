@@ -118,17 +118,17 @@ namespace lock_free
             {
                 return std::unexpected{core::error_code::empty};
             }
-            std::size_t size{0};
+            std::size_t msg_size{0};
             std::size_t msg_read_idx = read_idx;
             read(msg_read_idx,
-                 std::span<message_t>{reinterpret_cast<message_t *>(&size),
+                 std::span<message_t>{reinterpret_cast<message_t *>(&msg_size),
                                       sizeof(std::size_t)});
 
-            if (size > Capacity)
+            if (msg_size > Capacity)
             {
                 return std::unexpected{core::error_code::again};
             }
-            const auto total_size = sizeof(std::size_t) + size;
+            const auto total_size = sizeof(std::size_t) + msg_size;
             const auto next_read_idx = (read_idx + total_size) % buffer_.size();
 
             if (!read_idx_.compare_exchange_strong(read_idx, next_read_idx,
@@ -137,8 +137,8 @@ namespace lock_free
             {
                 return std::unexpected{core::error_code::again};
             }
-            message.resize(size);
-            read(msg_read_idx, std::span<message_t>{message.data(), size});
+            message.resize(msg_size);
+            read(msg_read_idx, std::span<message_t>{message.data(), msg_size});
             return std::expected<void, core::error_code>{};
         }
 
