@@ -138,10 +138,8 @@ namespace lock_free
             {
                 return std::unexpected{core::error_code::again};
             }
-            read(read_idx, std::span<message_t>{reinterpret_cast<message_t *>(&size),
-                                                sizeof(std::size_t)});
             message.resize(size);
-            read(read_idx, std::span<message_t>{message.data(), size});
+            read(msg_read_idx, std::span<message_t>{message.data(), size});
             return std::expected<void, core::error_code>{};
         }
 
