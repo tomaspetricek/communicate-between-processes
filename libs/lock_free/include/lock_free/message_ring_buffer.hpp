@@ -103,8 +103,7 @@ namespace lock_free
             write(write_idx, std::span<const message_t>{
                                  reinterpret_cast<const message_t *>(&message_size),
                                  sizeof(std::size_t)});
-            write(write_idx,
-                  std::span<const message_t>{message.data(), message.size()});
+            write(write_idx, message);
             assert((write_idx == next_write_idx));
             return std::expected<void, core::error_code>{};
         }
