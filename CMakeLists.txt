@@ -20,6 +20,7 @@ add_subdirectory(tests)
 add_subdirectory(libs/core)
 add_subdirectory(libs/common)
 add_subdirectory(libs/lock_free)
+add_subdirectory(libs/test)
 add_subdirectory(libs/unix)
 
 # add applications

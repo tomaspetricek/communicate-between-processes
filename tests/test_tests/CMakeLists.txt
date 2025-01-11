@@ -1,0 +1,5 @@
+add_executable(test_member_accessor test_member_accessor.cpp)
+
+target_link_libraries(test_member_accessor PRIVATE gtest gtest_main test_)
+
+add_test(NAME test_tests COMMAND test_member_accessor)
