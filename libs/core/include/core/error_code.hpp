@@ -22,7 +22,7 @@ namespace core
         assert(error < error_code::count);
         static const std::array<std::string_view, count> names{
             {{"again"}, {"full"}, {"empty"}, {"not_enough_space"}, {"count"}}};
-        return names[count];
+        return names[static_cast<std::size_t>(error)];
     }
 } // namespace core
 
