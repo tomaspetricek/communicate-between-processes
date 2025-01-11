@@ -10,4 +10,3 @@ git submodule update --init
 ```
 add_subdirectory(external/lib_name)
 ```
-

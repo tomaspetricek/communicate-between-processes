@@ -10,10 +10,12 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 
+# add external libraries
 add_subdirectory(external/strong_type)
 add_subdirectory(external/googletest)
+add_subdirectory(external/etl)
 
-# enable strong type formatting
+# enable strong type formatting 
 add_compile_definitions(STRONG_HAS_STD_FORMAT=1)
 
 # add unit tests
