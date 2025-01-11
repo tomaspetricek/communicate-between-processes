@@ -423,6 +423,49 @@ namespace async
     };
 } // namespace async
 
+// src:
+// https://stackoverflow.com/questions/22590821/convert-stdduration-to-human-readable-time
+std::ostream &operator<<(std::ostream &os, std::chrono::nanoseconds ns)
+{
+    using days = std::chrono::duration<int, std::ratio<86400>>;
+    auto d = duration_cast<days>(ns);
+    ns -= d;
+    auto h = duration_cast<std::chrono::hours>(ns);
+    ns -= h;
+    auto m = duration_cast<std::chrono::minutes>(ns);
+    ns -= m;
+    auto s = duration_cast<std::chrono::seconds>(ns);
+    ns -= s;
+
+    std::optional<int> fs_count;
+    switch (os.precision())
+    {
+    case 9:
+        fs_count = ns.count();
+        break;
+    case 6:
+        fs_count = duration_cast<std::chrono::microseconds>(ns).count();
+        break;
+    case 3:
+        fs_count = duration_cast<std::chrono::milliseconds>(ns).count();
+        break;
+    }
+
+    char fill = os.fill('0');
+    if (d.count())
+        os << d.count() << "d ";
+    if (d.count() || h.count())
+        os << std::setw(2) << h.count() << ":";
+    if (d.count() || h.count() || m.count())
+        os << std::setw(d.count() || h.count() ? 2 : 1) << m.count() << ":";
+    os << std::setw(d.count() || h.count() || m.count() ? 2 : 1) << s.count();
+    if (fs_count.has_value())
+        os << "." << std::setw(os.precision()) << fs_count.value();
+
+    os.fill(fill);
+    return os;
+}
+
 int main(int, char **)
 {
     const auto output_file_path =
@@ -437,6 +480,8 @@ int main(int, char **)
         std::cerr << "failed redirecting cout to a file" << std::endl;
         return EXIT_FAILURE;
     }
+
+    decltype(std::chrono::system_clock::now()) start;
     {
         constexpr std::size_t writer_count{1}, message_queue_capacity{10'240},
             message_count{1'000'000}, sem_count{2}, read_message_bytes_sem_index{0},
@@ -451,6 +496,7 @@ int main(int, char **)
             return EXIT_FAILURE;
         }
         auto &logger = logger_created.value();
+        start = std::chrono::system_clock::now();
 
         for (std::size_t index{0}; index < message_count; ++index)
         {
@@ -480,8 +526,14 @@ int main(int, char **)
         std::println("pushed count: {}", logger.pushed_count());
         std::println("popped count: {}", logger.popped_count());
     }
+    const auto end = std::chrono::system_clock::now();
+    const auto duration =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+
     // restore stdout to console
     std::fflush(stdout);
     std::freopen("/dev/tty", "w", stdout);
+
+    std::cout << "duration: " << duration << "\n";
     return EXIT_SUCCESS;
 }
