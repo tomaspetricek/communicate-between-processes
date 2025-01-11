@@ -13,6 +13,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
 add_subdirectory(external/strong_type)
 add_subdirectory(external/googletest)
 
+# enable strong type formatting
+add_compile_definitions(STRONG_HAS_STD_FORMAT=1)
+
 # add unit tests
 enable_testing()
 add_subdirectory(tests)
@@ -52,3 +55,6 @@ target_link_libraries(use_system_v_semaphores PRIVATE unix)
 
 add_executable(create_directory create_directory.cpp)
 target_link_libraries(create_directory PRIVATE unix)
+
+add_executable(use_strong_type use_strong_type.cpp)
+target_link_libraries(use_strong_type PRIVATE strong_type)
