@@ -101,9 +101,9 @@ namespace async
 
             while (true)
             {
-                std::println("[{}] waiting for message being written", writer_id);
+                // std::println("[{}] waiting for message being written", writer_id);
                 written_message_count_notifier_.wait_for_one();
-                std::println("[{}] message written", writer_id);
+                // std::println("[{}] message written", writer_id);
 
                 if (stop_flag.load())
                 {
@@ -115,7 +115,7 @@ namespace async
 
                 while (!popped)
                 {
-                    std::println("[{}] popping out message", writer_id);
+                    // std::println("[{}] popping out message", writer_id);
                     const auto message_popped = message_queue_.try_pop(message.buffer());
 
                     if (message_popped)
@@ -131,14 +131,14 @@ namespace async
                                      core::to_string(error));
                         return;
                     }
-                    std::println("[{}] failed to pop message, trying again", writer_id);
+                    // std::println("[{}] failed to pop message, trying again", writer_id);
                     retry_pop_count_.fetch_add(1, std::memory_order_relaxed);
                 }
                 pop_count_.fetch_add(1, std::memory_order_relaxed);
 
-                std::println("[{}] notifying about message being read", writer_id);
+                // std::println("[{}] notifying about message being read", writer_id);
                 const auto read_bytes =
-                    message_queue_type::required_message_storage(message.buffer().size());
+                    message_queue_type::required_message_storage(message.size());
                 const auto read_message = read_message_bytes_notifier_.notify(read_bytes);
 
                 if (!read_message)
@@ -148,7 +148,7 @@ namespace async
                         writer_id, unix::to_string(read_message.error()));
                     return;
                 }
-                std::println("[{}] formatting log", writer_id);
+                // std::println("[{}] formatting log", writer_id);
                 const auto format_func_addr = message.read<uintptr_t>();
                 void (*format_func)(output_message_buffer &) =
                     reinterpret_cast<void (*)(output_message_buffer &)>(format_func_addr);
@@ -366,8 +366,8 @@ namespace async
 
             if (!message_read)
             {
-                // std::println("failed waiting for message bytes being read due to: {}",
-                //              unix::to_string(message_read.error()));
+                std::println("failed waiting for message bytes being read due to: {}",
+                             unix::to_string(message_read.error()));
                 return false;
             }
             bool pushed{false};
@@ -389,7 +389,7 @@ namespace async
                                  core::to_string(error));
                     return false;
                 }
-                std::println("failed to push message, trying again");
+                // std::println("failed to push message, trying again");
                 retry_push_count_++;
             }
             pushed_count_++;
@@ -483,7 +483,7 @@ int main(int, char **)
 
     decltype(std::chrono::system_clock::now()) start;
     {
-        constexpr std::size_t writer_count{1}, message_queue_capacity{10'240},
+        constexpr std::size_t writer_count{12}, message_queue_capacity{10'240},
             message_count{1'000'000}, sem_count{2}, read_message_bytes_sem_index{0},
             written_message_sem_index{1};
 
@@ -517,10 +517,10 @@ int main(int, char **)
         }
         std::println("message generation done");
 
-        if (!logger.wait_till_all_popped())
-        {
-            return EXIT_FAILURE;
-        }
+        // if (!logger.wait_till_all_popped())
+        // {
+        //     return EXIT_FAILURE;
+        // }
         std::println("retry push count: {}", logger.retry_push_count());
         std::println("retry pop count: {}", logger.retry_pop_count());
         std::println("pushed count: {}", logger.pushed_count());
