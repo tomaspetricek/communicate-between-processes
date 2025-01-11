@@ -60,3 +60,6 @@ target_link_libraries(create_directory PRIVATE unix)
 
 add_executable(use_strong_type use_strong_type.cpp)
 target_link_libraries(use_strong_type PRIVATE strong_type)
+
+add_executable(use_etl use_etl.cpp)
+target_link_libraries(use_etl PRIVATE etl)
