@@ -18,6 +18,9 @@ add_subdirectory(external/etl)
 # enable strong type formatting 
 add_compile_definitions(STRONG_HAS_STD_FORMAT=1)
 
+# enable etl assertions
+add_compile_definitions(ETL_DEBUG=1)
+
 # add unit tests
 enable_testing()
 add_subdirectory(tests)

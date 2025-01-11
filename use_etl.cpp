@@ -12,4 +12,7 @@ int main(int, char **)
         std::print("{},", num);
     }
     std::println("");
+
+    const auto beyond = nums.at(num_count);
+    std::println("{}", beyond);
 }
