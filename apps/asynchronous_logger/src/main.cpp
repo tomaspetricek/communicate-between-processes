@@ -185,10 +185,8 @@ namespace async
         std::size_t size_{0};
         std::array<lock_free::message_t, Capacity> buffer_ = {};
 
-    public:
-        template <class Value>
-        void write(const std::span<const Value> &values) noexcept
-        {
+        template<class Value>
+        void write_impl(const std::span<const Value> &values) noexcept {
             const auto total_size = sizeof(Value) * values.size();
             assert((size_ + total_size) <= Capacity);
             const auto min_size = std::min(total_size, buffer_.size() - size_);
@@ -196,16 +194,17 @@ namespace async
             std::memcpy(buff + size_, values.data(), min_size);
             size_ += min_size;
         }
+    public:
+        template <class Value>
+        void write(const std::span<const Value> &values) noexcept
+        {
+            write_impl(values);
+        }
 
         template <class Value>
         void write(const Value &value) noexcept
         {
-            const auto size = sizeof(Value);
-            assert((size_ + size) <= Capacity);
-            const auto min_size = std::min(size, buffer_.size() - size_);
-            std::byte *buff = reinterpret_cast<std::byte *>(buffer_.data());
-            std::memcpy(buff + size_, &value, min_size);
-            size_ += min_size;
+            write_impl(std::span<const Value>{&value, 1});
         }
 
         std::size_t size() const noexcept { return size_; }
@@ -483,7 +482,7 @@ int main(int, char **)
 
     decltype(std::chrono::system_clock::now()) start;
     {
-        constexpr std::size_t writer_count{12}, message_queue_capacity{10'240},
+        constexpr std::size_t writer_count{1}, message_queue_capacity{10'240},
             message_count{1'000'000}, sem_count{2}, read_message_bytes_sem_index{0},
             written_message_sem_index{1};
 
