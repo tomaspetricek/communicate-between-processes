@@ -17,4 +17,9 @@ int main(int, char **)
     const auto seek_distance = disk_scheduling::scan::compute_seek_distance(
         requests, init_head_position, disk_scheduling::head_direction::left);
     std::println("seek distance: {}", seek_distance);
+
+    disk_scheduling::scan::scheduler<disk_info> scheduler{disk_scheduling::head_direction::left};
+    disk_scheduling::disk<disk_info> disk{track_number_t{8}};
+    const auto selected = scheduler.select_next(disk, requests);
+    std::println("selected: {}", selected.track_number.value);
 }
