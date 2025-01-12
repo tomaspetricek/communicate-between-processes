@@ -28,6 +28,7 @@ add_subdirectory(tests)
 # add libraries
 add_subdirectory(libs/core)
 add_subdirectory(libs/common)
+add_subdirectory(libs/disk_scheduling)
 add_subdirectory(libs/lock_free)
 add_subdirectory(libs/test)
 add_subdirectory(libs/unix)
@@ -66,3 +67,6 @@ target_link_libraries(use_strong_type PRIVATE strong_type)
 
 add_executable(use_etl use_etl.cpp)
 target_link_libraries(use_etl PRIVATE etl)
+
+add_executable(use_scan use_scan.cpp)
+target_link_libraries(use_scan PRIVATE disk_scheduling)
