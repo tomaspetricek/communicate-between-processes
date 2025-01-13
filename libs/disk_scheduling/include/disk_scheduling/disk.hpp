@@ -32,6 +32,12 @@ namespace disk_scheduling
         }
 
         value_type value;
+
+        friend bool operator<(const track_number<DiskInfo> &lhs,
+                              const track_number<DiskInfo> &rhs) noexcept
+        {
+            return lhs.value < rhs.value;
+        }
     };
 
     template <class TrackNumber>
@@ -40,6 +46,11 @@ namespace disk_scheduling
         static_assert(
             std::is_same_v<TrackNumber, track_number<TrackNumber::disk_info>>);
         TrackNumber track_number;
+
+        friend bool operator<(const request<TrackNumber> &lhs, const request<TrackNumber> &rhs) noexcept
+        {
+            return lhs.track_number < rhs.track_number;
+        }
     };
 
     enum class head_direction

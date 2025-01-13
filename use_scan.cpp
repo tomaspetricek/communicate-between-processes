@@ -8,6 +8,7 @@ int main(int, char **)
     using track_number_t = disk_scheduling::track_number<disk_info>;
     using request_t = disk_scheduling::request<track_number_t>;
 
+    constexpr std::size_t request_count{8};
     auto requests = std::array{
         request_t{track_number_t{176}}, request_t{track_number_t{79}},
         request_t{track_number_t{34}}, request_t{track_number_t{60}},
@@ -18,8 +19,16 @@ int main(int, char **)
         requests, init_head_position, disk_scheduling::head_direction::left);
     std::println("seek distance: {}", seek_distance);
 
+    const disk_scheduling::disk<disk_info> disk{track_number_t{189}};
+
     disk_scheduling::scan::scheduler<disk_info> scheduler{disk_scheduling::head_direction::left};
-    disk_scheduling::disk<disk_info> disk{track_number_t{8}};
-    const auto selected = scheduler.select_next(disk, requests);
+    auto selected = scheduler.select_next(disk, requests);
+    std::println("selected: {}", selected.track_number.value);
+
+    etl::flat_set<request_t, request_count> sorted_requests{
+        requests.begin(), requests.end()
+    };
+    scheduler = disk_scheduling::scan::scheduler<disk_info>{disk_scheduling::head_direction::left};
+    selected = scheduler.select_next(disk, sorted_requests);
     std::println("selected: {}", selected.track_number.value);
 }

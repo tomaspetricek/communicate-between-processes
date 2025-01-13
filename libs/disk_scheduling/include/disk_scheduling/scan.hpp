@@ -7,6 +7,8 @@
 #include <cmath>
 #include <limits>
 
+#include <etl/flat_set.h>
+
 #include "disk_scheduling/disk.hpp"
 
 namespace disk_scheduling
@@ -77,7 +79,7 @@ namespace disk_scheduling
                 : curr_direction_{direction} {}
 
             template <std::size_t RequestCount>
-            request_type
+            constexpr request_type
             select_next(const disk_type &disk,
                         std::array<request_type, RequestCount> &requests) noexcept
             {
@@ -97,31 +99,60 @@ namespace disk_scheduling
                 }
                 if (curr_direction_ == head_direction::right)
                 {
-                    // greater than the last
                     if (index == requests.size())
                     {
-                        // flip direction
                         curr_direction_ = head_direction::left;
-
-                        // next in the opposite direction
                         return requests.back();
                     }
-                    // next in the current direction
                     return requests[index];
                 }
                 assert(curr_direction_ == head_direction::left);
 
-                // less than the first
                 if (index == std::size_t{0})
                 {
-                    // flip direction
                     curr_direction_ = head_direction::right;
-
-                    // next in the opposite direction
                     return requests.front();
                 }
-                // next in the current direction
                 return requests[index - 1];
+            }
+
+            template <std::size_t RequestCount>
+            request_type
+            select_next(const disk_type &disk,
+                        etl::flat_set<request_type, RequestCount> &requests) noexcept
+            {
+                assert(!requests.empty());
+
+                if (curr_direction_ == head_direction::right)
+                {
+                    const auto first_greater = std::upper_bound(
+                        requests.begin(), requests.end(), disk.head_position,
+                        [](const track_number_type &target, const request_type &req)
+                        {
+                            return target.value < req.track_number.value;
+                        });
+
+                    if (first_greater == requests.end())
+                    {
+                        curr_direction_ = head_direction::left;
+                        return *(--requests.end());
+                    }
+                    return *first_greater;
+                }
+                assert(curr_direction_ == head_direction::left);
+                auto not_less = std::lower_bound(
+                    requests.begin(), requests.end(), disk.head_position,
+                    [](const request_type &req, const track_number_type &target)
+                    {
+                        return req.track_number.value < target.value;
+                    });
+
+                if (not_less == requests.begin())
+                {
+                    curr_direction_ = head_direction::right;
+                    return *requests.begin();
+                }
+                return *(--not_less);
             }
         };
     } // namespace scan
