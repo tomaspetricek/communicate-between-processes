@@ -36,6 +36,7 @@ add_subdirectory(libs/unix)
 # add applications
 add_subdirectory(apps/asynchronous_logger)
 add_subdirectory(apps/consumer_producer_problem)
+add_subdirectory(apps/create_language)
 add_subdirectory(apps/sleeping_barber_problem)
 
 add_executable(use_pipes use_pipes.cpp)
