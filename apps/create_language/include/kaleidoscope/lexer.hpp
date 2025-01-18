@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string>
 
+// src: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html
 namespace kaleidoscope
 {
     enum Token
