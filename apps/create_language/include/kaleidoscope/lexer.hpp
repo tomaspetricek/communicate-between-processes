@@ -2,8 +2,10 @@
 #define KALEIDOSCOPE_LEXER_HPP
 
 #include <ctype.h>
+#include <optional>
 #include <stdio.h>
 #include <string>
+#include <variant>
 
 // src: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html
 namespace kaleidoscope
@@ -90,6 +92,100 @@ namespace kaleidoscope
         LastChar = getchar();
         return ThisChar;
     }
+
+    struct eof_token
+    {
+    };
+
+    // commands
+    struct def_token
+    {
+    };
+    struct extern_token
+    {
+    };
+
+    // primary
+    struct identifier_token
+    {
+        std::string identifier;
+    };
+    struct number_token
+    {
+        double number{0};
+    };
+    using token_t = std::variant<eof_token, def_token, extern_token,
+                                 identifier_token, number_token>;
+
+    class lexer
+    {
+        char last_{' '};
+
+    public:
+        std::optional<token_t> get_token() noexcept
+        {
+            // skip any whitespace
+            while (isspace(last_))
+            {
+                last_ = getchar();
+            }
+            if (isalpha(last_))
+            {
+                std::string indentifier;
+                indentifier += last_;
+
+                while (isalnum((last_ = getchar())))
+                {
+                    indentifier += last_;
+                }
+                if (indentifier == "def")
+                {
+                    return def_token{};
+                }
+                if (indentifier == "extern")
+                {
+                    return extern_token{};
+                }
+                return identifier_token{std::move(indentifier)};
+            }
+            if (isdigit(last_) || last_ == '.')
+            {
+                std::string num;
+
+                // need better error checking
+                do
+                {
+                    num += last_;
+                    last_ = getchar();
+                } while (isdigit(last_) || last_ == '.');
+
+                // handle error
+                const auto value = strtod(num.c_str(), 0);
+                return number_token{value};
+            }
+            if (last_ == '#')
+            {
+                // comment until end of line
+                do
+                {
+                    last_ = getchar();
+                } while (last_ != EOF && last_ != '\n' && last_ != '\r');
+
+                if (last_ != EOF)
+                {
+                    return get_token();
+                }
+            }
+            // check for end of file. don't eat the EOF
+            if (last_ == EOF)
+            {
+                return eof_token{};
+            }
+            // otheriwise just return the character as its ascii value
+            last_ = getchar();
+            return std::nullopt;
+        }
+    };
 } // namespace kaleidoscope
 
 #endif // KALEIDOSCOPE_LEXER_HPP
