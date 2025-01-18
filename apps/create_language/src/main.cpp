@@ -1,10 +1,10 @@
 #include <print>
 
 #include "kaleidoscope/lexer.hpp"
+#include "kaleidoscope/token_formatter.hpp"
 
 int main(int, char **)
 {
-  std::println("language");
   kaleidoscope::gettok();
 
   kaleidoscope::lexer lexer;
@@ -14,9 +14,7 @@ int main(int, char **)
   {
     if (std::holds_alternative<kaleidoscope::number_token>(token.value()))
     {
-      const auto number =
-          std::get<kaleidoscope::number_token>(token.value()).number;
-      std::println("value: {}", number);
+      std::println("token: {}", std::get<kaleidoscope::number_token>(token.value()));
     }
   }
 }
