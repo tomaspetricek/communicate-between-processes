@@ -100,12 +100,13 @@ namespace kaleidoscope
         char last_{' '};
 
     public:
-        std::optional<token_t> get_token() noexcept
+        template<class Reader>
+        std::optional<token_t> get_token(Reader& reader) noexcept
         {
             // skip any whitespace
             while (isspace(last_))
             {
-                last_ = getchar();
+                last_ = reader.read();
             }
             if (isalpha(last_))
             {
@@ -134,7 +135,7 @@ namespace kaleidoscope
                 do
                 {
                     num += last_;
-                    last_ = getchar();
+                    last_ = reader.read();
                 } while (isdigit(last_) || last_ == '.');
 
                 // handle error
@@ -146,12 +147,12 @@ namespace kaleidoscope
                 // comment until end of line
                 do
                 {
-                    last_ = getchar();
+                    last_ = reader.read();
                 } while (last_ != EOF && last_ != '\n' && last_ != '\r');
 
                 if (last_ != EOF)
                 {
-                    return get_token();
+                    return get_token(reader);
                 }
             }
             // check for end of file. don't eat the EOF
@@ -160,7 +161,7 @@ namespace kaleidoscope
                 return eof_token{};
             }
             // otheriwise just return the character as its ascii value
-            last_ = getchar();
+            last_ = reader.read();
             return std::nullopt;
         }
     };
