@@ -88,4 +88,21 @@ struct std::formatter<kaleidoscope::unknown_token>
     }
 };
 
+template <>
+struct std::formatter<kaleidoscope::token_t> : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::token_t &token, FormatContext &ctx) const
+    {
+        return std::visit(
+            [&ctx](const auto &tok)
+            {
+                return std::format_to(ctx.out(), "{}", tok);
+            },
+            token);
+    }
+};
+
 #endif // KALEIDOSCOPE_TOKEN_FORMATTER_HPP
