@@ -15,7 +15,7 @@ struct std::formatter<kaleidoscope::eof_token> : std::formatter<std::string>
     template <class FormatContext>
     auto format(const kaleidoscope::eof_token &, FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", "eof");
+        return std::format_to(ctx.out(), "{}", "[eof]");
     }
 };
 
@@ -28,7 +28,7 @@ struct std::formatter<kaleidoscope::def_token> : std::formatter<std::string>
     template <class FormatContext>
     auto format(const kaleidoscope::def_token &, FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", "def");
+        return std::format_to(ctx.out(), "{}", "[def]");
     }
 };
 
@@ -41,7 +41,7 @@ struct std::formatter<kaleidoscope::extern_token>
     template <class FormatContext>
     auto format(const kaleidoscope::extern_token &, FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", "extern");
+        return std::format_to(ctx.out(), "{}", "[extern]");
     }
 };
 
@@ -56,7 +56,7 @@ struct std::formatter<kaleidoscope::identifier_token>
     auto format(const kaleidoscope::identifier_token &token,
                 FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", token.identifier);
+        return std::format_to(ctx.out(), "[identifier]: {}", token.identifier);
     }
 };
 
@@ -70,7 +70,7 @@ struct std::formatter<kaleidoscope::number_token>
     auto format(const kaleidoscope::number_token &token,
                 FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", token.number);
+        return std::format_to(ctx.out(), "[number]: {}", token.number);
     }
 };
 
@@ -84,7 +84,7 @@ struct std::formatter<kaleidoscope::unknown_token>
     auto format(const kaleidoscope::unknown_token &token,
                 FormatContext &ctx) const
     {
-        return std::format_to(ctx.out(), "{}", token.value);
+        return std::format_to(ctx.out(), "[unknown]: {}", token.value);
     }
 };
 

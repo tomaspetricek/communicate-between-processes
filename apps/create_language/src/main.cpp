@@ -5,7 +5,6 @@
 #include "kaleidoscope/lexer.hpp"
 #include "kaleidoscope/token_formatter.hpp"
 
-
 int main(int, char **)
 {
   // kaleidoscope::gettok();
@@ -22,6 +21,13 @@ int main(int, char **)
                    "fib(40)\n"};
   code += static_cast<char>(EOF);
   kaleidoscope::buffer_reader reader{code};
-  const auto token = lexer.get_token(reader);
-  std::println("token: {}", token);
+
+  kaleidoscope::token_t token;
+  std::println("tokens:");
+
+  do
+  {
+    token = lexer.get_token(reader);
+    std::println("{}", token);
+  } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
 }
