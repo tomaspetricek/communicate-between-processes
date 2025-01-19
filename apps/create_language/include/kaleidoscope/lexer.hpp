@@ -101,7 +101,7 @@ namespace kaleidoscope
 
     public:
         template<class Reader>
-        std::optional<token_t> get_token(Reader& reader) noexcept
+        token_t get_token(Reader& reader) noexcept
         {
             // skip any whitespace
             while (isspace(last_))
@@ -113,7 +113,7 @@ namespace kaleidoscope
                 std::string indentifier;
                 indentifier += last_;
 
-                while (isalnum((last_ = getchar())))
+                while (isalnum((last_ = reader.read())))
                 {
                     indentifier += last_;
                 }
@@ -161,8 +161,10 @@ namespace kaleidoscope
                 return eof_token{};
             }
             // otheriwise just return the character as its ascii value
+            unknown_token token{};
+            token.value = last_;
             last_ = reader.read();
-            return std::nullopt;
+            return token;
         }
     };
 } // namespace kaleidoscope
