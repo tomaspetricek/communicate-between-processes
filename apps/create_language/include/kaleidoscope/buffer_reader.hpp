@@ -22,6 +22,10 @@ namespace kaleidoscope
             }
             return buffer_[index_++];
         }
+
+        void reset() noexcept {
+            index_ = 0;
+        }
     };
 } // namespace kaleidoscope
 

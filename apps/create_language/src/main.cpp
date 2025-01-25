@@ -11,9 +11,6 @@
 
 int main(int, char **)
 {
-  // kaleidoscope::gettok();
-
-  kaleidoscope::lexer lexer;
   std::string code{"# Compute the x'th fibonacci number.\n"
                    "def fib(x)\n"
                    "if x < 3 then\n"
@@ -25,13 +22,14 @@ int main(int, char **)
                    "fib(40)\n"};
   code += static_cast<char>(EOF);
   kaleidoscope::buffer_reader reader{code};
+  kaleidoscope::lexer lexer{reader};
 
   kaleidoscope::token_t token;
   std::println("tokens:");
 
   do
   {
-    token = lexer.get_token(reader);
+    token = lexer.get_token();
     std::println("{}", token);
   } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
 
@@ -39,5 +37,12 @@ int main(int, char **)
   auto rhs = std::make_unique<kaleidoscope::ast::variable_expression>("y");
   auto result = std::make_unique<kaleidoscope::ast::binary_expression>('+', std::move(lhs), std::move(rhs));
 
-  kaleidoscope::main_loop();
+  std::string sample2{
+      "extern sin(arg);"
+      "extern cos(arg);"
+      "extern atan2(arg1 arg2);"
+      ""
+      "atan2(sin(.4), cos(42))"};
+  kaleidoscope::buffer_reader sample2_reader{sample2};
+  kaleidoscope::main_loop(sample2_reader);
 }

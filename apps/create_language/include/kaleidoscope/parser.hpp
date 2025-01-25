@@ -1,6 +1,7 @@
 #ifndef KALEIDOSCOPE_PARSER_HPP
 #define KALEIDOSCOPE_PARSER_HPP
 
+#include <cassert>
 #include <ctype.h>
 #include <memory>
 #include <stdio.h>
@@ -9,17 +10,11 @@
 #include <vector>
 
 #include "kaleidoscope/abstract_syntax_tree.hpp"
-#include "kaleidoscope/original/lexer.hpp"
+#include "kaleidoscope/lexer.hpp"
 
 // https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl02.html
 namespace kaleidoscope
 {
-    // provide simple token buffer
-    static int current_token; // is current token that the parser is looking at
-
-    // updates current token
-    static int get_next_token() { return current_token = gettok(); }
-
     // helpers for error handling
     std::unique_ptr<ast::expression> log_error(const char *message)
     {
@@ -34,55 +29,67 @@ namespace kaleidoscope
         return nullptr;
     }
 
-    static std::unique_ptr<ast::expression> parse_expression();
+    template <class Lexer>
+    static std::unique_ptr<ast::expression> parse_expression(Lexer &lexer);
 
     // numberexpr ::= number
-    static std::unique_ptr<ast::expression> parse_number_expression()
+    template <class Lexer>
+    static std::unique_ptr<ast::expression> parse_number_expression(Lexer &lexer)
     {
-        auto result = std::make_unique<ast::number_expression>(NumVal);
-        get_next_token(); // consume the number
+        assert(std::holds_alternative<number_token>(lexer.current_token()));
+        auto result = std::make_unique<ast::number_expression>(
+            std::get<number_token>(lexer.current_token()).number);
+        lexer.get_next_token(); // consume the number
         return std::move(result);
     }
 
     // parentexpr ::= '(' expression ')'
-    static std::unique_ptr<ast::expression> parse_parenthesis_expression()
+    template <class Lexer>
+    static std::unique_ptr<ast::expression>
+    parse_parenthesis_expression(Lexer &lexer)
     {
-        get_next_token();             // eat (
-        auto expr = parse_expression(); // allows to handle recursive grammars
+        lexer.get_next_token();              // eat (
+        auto expr = parse_expression(lexer); // allows to handle recursive grammars
 
         if (!expr)
         {
             return nullptr;
         }
-
-        if (current_token != ')')
+        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+            std::get<unknown_token>(lexer.current_token()).value != ')')
         {
             return log_error("expected ')'");
         }
-        get_next_token(); // eat )
-        return expr;       // once the parser constructs AST, parentheses are not needed
+        lexer.get_next_token(); // eat )
+        return expr;            // once the parser constructs AST, parentheses are not needed
     }
 
     // identifierexpr
     //  ::= identifier
     //  ::= identifier '(' expression* ')'
-    static std::unique_ptr<ast::expression> parse_identifier_expression()
+    template <class Lexer>
+    static std::unique_ptr<ast::expression>
+    parse_identifier_expression(Lexer &lexer)
     {
-        std::string identifier = IdentifierStr;
-        get_next_token(); // eat identifier
+        assert(std::holds_alternative<identifier_token>(lexer.current_token()));
+        std::string identifier = std::get<identifier_token>(lexer.current_token()).identifier;
+        lexer.get_next_token(); // eat identifier
 
-        if (current_token != '(')
+        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+            std::get<unknown_token>(lexer.current_token()).value !=
+                '(')
         { // simple variable reference // look ahead
             return std::make_unique<ast::variable_expression>(identifier);
         }
-        get_next_token(); // eat (
+        lexer.get_next_token(); // eat (
         std::vector<std::unique_ptr<ast::expression>> args;
 
-        if (current_token != ')')
+        if (!std::holds_alternative<unknown_token>(lexer.current_token()) ||
+            std::get<unknown_token>(lexer.current_token()).value != ')')
         {
             while (true)
             {
-                if (auto arg = parse_expression())
+                if (auto arg = parse_expression(lexer))
                 {
                     args.push_back(std::move(arg));
                 }
@@ -90,40 +97,49 @@ namespace kaleidoscope
                 {
                     return nullptr;
                 }
-
-                if (current_token == ')')
+                if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+                    std::get<unknown_token>(lexer.current_token()).value == ')')
                 {
                     break;
                 }
-
-                if (current_token != ',')
+                if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+                    std::get<unknown_token>(lexer.current_token()).value != ',')
                 {
                     return log_error("Expected ')' or ',' in argument list");
                 }
-                get_next_token();
+                lexer.get_next_token();
             }
         }
-        get_next_token();
-        return std::make_unique<ast::call_expression>(std::move(identifier), std::move(args));
+        lexer.get_next_token();
+        return std::make_unique<ast::call_expression>(std::move(identifier),
+                                                      std::move(args));
     }
 
     // primary
     //  ::= identifierexpr
     //  ::= numberexpr
     //  ::= parenexpr
-    static std::unique_ptr<ast::expression> parse_primary()
+    template <class Lexer>
+    static std::unique_ptr<ast::expression> parse_primary(Lexer &lexer)
     {
-        switch (current_token)
+        if (std::holds_alternative<identifier_token>(lexer.current_token()))
         {
-        default:
-            return log_error("unknown token when expecting an expression");
-        case tok_identifier:
-            return parse_identifier_expression();
-        case tok_number:
-            return parse_number_expression();
-        case '(':
-            return parse_parenthesis_expression();
+            return parse_identifier_expression(lexer);
         }
+        if (std::holds_alternative<number_token>(lexer.current_token()))
+        {
+            return parse_number_expression(lexer);
+        }
+        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+            std::get<unknown_token>(lexer.current_token()).value)
+        {
+            return parse_parenthesis_expression(lexer);
+        }
+        if (std::holds_alternative<eof_token>(lexer.current_token()))
+        {
+            return nullptr;
+        }
+        return log_error("unknown token when expecting an expression");
     }
 
     // holds precedence for each binary operator that is defined
@@ -132,14 +148,18 @@ namespace kaleidoscope
     };
 
     // get the precedence of the pending binary operator token
-    static int get_token_precendence()
+    template <class Lexer>
+    static int get_token_precendence(Lexer &lexer)
     {
-        if (!isascii(current_token))
+        if (!std::holds_alternative<unknown_token>(lexer.current_token()) ||
+            !isascii(std::get<unknown_token>(lexer.current_token()).value))
         {
             return -1;
         }
         // make sure that it's declared in the map
-        const int token_precedence = binary_operator_precedence[current_token];
+        const int token_precedence =
+            binary_operator_precedence[std::get<unknown_token>(lexer.current_token())
+                                           .value];
 
         if (token_precedence <= 0)
         {
@@ -150,12 +170,15 @@ namespace kaleidoscope
 
     // binoprhs
     //  ::= ('+' primary)
-    static std::unique_ptr<ast::expression> parse_binaray_operation_rhs(int expr_precendence, std::unique_ptr<ast::expression> lhs)
+    template <class Lexer>
+    static std::unique_ptr<ast::expression>
+    parse_binaray_operation_rhs(Lexer &lexer, int expr_precendence,
+                                std::unique_ptr<ast::expression> lhs)
     {
         // if it is binop find it's precedence
         while (true)
         {
-            int token_precedence = get_token_precendence();
+            int token_precedence = get_token_precendence(lexer);
 
             // if this is a binop that binds at least as tightly as the current binop,
             // consume it, otherwise we are done
@@ -164,11 +187,12 @@ namespace kaleidoscope
                 return lhs;
             }
             // know that it is binop
-            int binary_operator = current_token;
-            get_next_token(); // eat binop
+            const auto binary_operator =
+                std::get<unknown_token>(lexer.current_token()).value;
+            lexer.get_next_token(); // eat binop
 
             // parse the primary expression after the binary operator
-            auto rhs = parse_primary();
+            auto rhs = parse_primary(lexer);
 
             if (!rhs)
             {
@@ -176,79 +200,86 @@ namespace kaleidoscope
             }
             // if binop binds less tightly with rhs than the operator rhs, let
             // the pending operator take rhs as its lhs
-            int next_precedence = get_token_precendence();
+            int next_precedence = get_token_precendence(lexer);
 
             if (token_precedence < next_precedence)
             {
-                rhs = parse_binaray_operation_rhs(token_precedence + 1, std::move(rhs));
+                rhs = parse_binaray_operation_rhs(lexer, token_precedence + 1,
+                                                  std::move(rhs));
 
                 if (!rhs)
                 {
                     return nullptr;
                 }
             }
-            lhs = std::make_unique<ast::binary_expression>(binary_operator, std::move(lhs),
-                                                           std::move(rhs));
+            lhs = std::make_unique<ast::binary_expression>(
+                binary_operator, std::move(lhs), std::move(rhs));
         }
     }
 
     // expression
     //  ::= primary binoprhs
-    static std::unique_ptr<ast::expression> parse_expression()
+    template <class Lexer>
+    static std::unique_ptr<ast::expression> parse_expression(Lexer &lexer)
     {
-        auto lhs = parse_primary();
+        auto lhs = parse_primary(lexer);
 
         if (!lhs)
         {
             return nullptr;
         }
-        return parse_binaray_operation_rhs(0, std::move(lhs));
+        return parse_binaray_operation_rhs(lexer, 0, std::move(lhs));
     }
 
     // prototype
     //  ::= id '(' id* ')'
-    static std::unique_ptr<ast::prototype> parse_prototype()
+    template <class Lexer>
+    static std::unique_ptr<ast::prototype> parse_prototype(Lexer &lexer)
     {
-        if (current_token != tok_identifier)
+        if (!std::holds_alternative<identifier_token>(lexer.current_token()))
         {
             return log_error_prototype("expected function name in prototype");
         }
-        std::string function_name = IdentifierStr;
-        get_next_token();
+        std::string function_name =
+            std::get<identifier_token>(lexer.current_token()).identifier;
+        lexer.get_next_token();
 
-        if (current_token != '(')
+        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+            std::get<unknown_token>(lexer.current_token()).value != '(')
         {
             return log_error_prototype("expected '(' in prototype");
         }
-
         // read list of argument names
         std::vector<std::string> arg_names;
 
-        while (get_next_token() == tok_identifier)
+        while (std::holds_alternative<identifier_token>(lexer.get_next_token()))
         {
-            arg_names.push_back(IdentifierStr);
+            arg_names.push_back(
+                std::get<identifier_token>(lexer.current_token()).identifier);
         }
-        if (current_token != ')')
+        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+            std::get<unknown_token>(lexer.current_token()).value != ')')
         {
-            return log_error_prototype("Expected ')' in prototype");
+            return log_error_prototype("expected ')' in prototype");
         }
         // success
-        get_next_token(); // eat ')'
+        lexer.get_next_token(); // eat ')'
         return std::make_unique<ast::prototype>(std::move(function_name),
                                                 std::move(arg_names));
     }
 
     // definition ::= 'def' prototype expression
-    static std::unique_ptr<ast::function> parse_definition()
+    template <class Lexer>
+    static std::unique_ptr<ast::function> parse_definition(Lexer &lexer)
     {
-        get_next_token(); // eat def
-        auto proto = parse_prototype();
+        lexer.get_next_token(); // eat def
+        auto proto = parse_prototype(lexer);
 
         if (!proto)
         {
             return nullptr;
         }
-        if (auto expr = parse_expression())
+        if (auto expr = parse_expression(lexer))
         {
             return std::make_unique<ast::function>(std::move(proto), std::move(expr));
         }
@@ -256,16 +287,18 @@ namespace kaleidoscope
     }
 
     // external ::= 'extern' prototype
-    static std::unique_ptr<ast::prototype> parse_extern()
+    template <class Lexer>
+    static std::unique_ptr<ast::prototype> parse_extern(Lexer &lexer)
     {
-        get_next_token(); // eat extern
-        return parse_prototype();
+        lexer.get_next_token(); // eat extern
+        return parse_prototype(lexer);
     }
 
     // toplevelexpr := expression
-    static std::unique_ptr<ast::function> parse_top_level_expression()
+    template <class Lexer>
+    static std::unique_ptr<ast::function> parse_top_level_expression(Lexer &lexer)
     {
-        if (auto expr = parse_expression())
+        if (auto expr = parse_expression(lexer))
         {
             // make anonymous proto
             auto proto =
@@ -275,68 +308,78 @@ namespace kaleidoscope
         return nullptr;
     }
 
-    static void handle_definition()
+    template <class Lexer>
+    static void handle_definition(Lexer &lexer)
     {
-        if (parse_definition())
+        if (parse_definition(lexer))
         {
-            fprintf(stdout, "parsed a function definition.\n");
+            fprintf(stdout, "parsed a function definition\n");
         }
         else
         {
-            // skip token for error recovery.
-            get_next_token();
+            fprintf(stderr, "failed parsing a function definition\n");
+            lexer.get_next_token();
         }
     }
 
-    static void handle_extern()
+    template <class Lexer>
+    static void handle_extern(Lexer &lexer)
     {
-        if (parse_extern())
+        if (parse_extern(lexer))
         {
             fprintf(stdout, "parsed an extern\n");
         }
         else
         {
-            // skip token for error recovery.
-            get_next_token();
+            fprintf(stderr, "failed parsing an extern\n");
+            lexer.get_next_token();
         }
     }
 
-    static void handle_top_level_expression()
+    template <class Lexer>
+    static void handle_top_level_expression(Lexer &lexer)
     {
         // Evaluate a top-level expression into an anonymous function.
-        if (parse_top_level_expression())
+        if (parse_top_level_expression(lexer))
         {
             fprintf(stdout, "parsed a top-level expr\n");
         }
         else
         {
-            // skip token for error recovery.
-            get_next_token();
+            fprintf(stderr, "failed parsing a top-level expr\n");
+            lexer.get_next_token();
         }
     }
 
     // top := definition | external | expression
-    static void main_loop()
+    template <class Reader>
+    static void main_loop(Reader &reader)
     {
+        kaleidoscope::lexer lexer{reader};
+        lexer.get_next_token();
+
         while (true)
         {
-            fprintf(stdout, "ready> ");
-            switch (current_token)
+            if (std::holds_alternative<eof_token>(lexer.current_token()))
             {
-            case tok_eof:
                 return;
-            case ';': // ignore top level semicolons
-                get_next_token();
-                break;
-            case tok_def:
-                handle_definition();
-                break;
-            case tok_extern:
-                handle_extern();
-                break;
-            default:
-                handle_top_level_expression();
-                break;
+            }
+            else if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
+                     std::get<unknown_token>(lexer.current_token()).value == ';')
+            {
+                lexer.get_next_token();
+            }
+            else if (std::holds_alternative<def_token>(lexer.current_token()))
+            {
+                handle_definition(lexer);
+            }
+            else if (std::holds_alternative<extern_token>(lexer.current_token()))
+            {
+                handle_extern(lexer);
+            }
+            else
+            {
+                handle_top_level_expression(lexer);
             }
         }
     }

@@ -12,25 +12,29 @@
 // src: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html
 namespace kaleidoscope
 {
+    template <class Reader>
     class lexer
     {
         char last_{' '};
+        token_t curr_token_;
+        Reader &reader_;
 
     public:
-        template<class Reader>
-        token_t get_token(Reader& reader) noexcept
+        explicit lexer(Reader &reader) noexcept : reader_{reader} {}
+
+        token_t get_token() noexcept
         {
             // skip any whitespace
             while (isspace(last_))
             {
-                last_ = reader.read();
+                last_ = reader_.read();
             }
             if (isalpha(last_))
             {
                 std::string indentifier;
                 indentifier += last_;
 
-                while (isalnum((last_ = reader.read())))
+                while (isalnum((last_ = reader_.read())))
                 {
                     indentifier += last_;
                 }
@@ -52,7 +56,7 @@ namespace kaleidoscope
                 do
                 {
                     num += last_;
-                    last_ = reader.read();
+                    last_ = reader_.read();
                 } while (isdigit(last_) || last_ == '.');
 
                 // handle error
@@ -64,12 +68,12 @@ namespace kaleidoscope
                 // comment until end of line
                 do
                 {
-                    last_ = reader.read();
+                    last_ = reader_.read();
                 } while (last_ != EOF && last_ != '\n' && last_ != '\r');
 
                 if (last_ != EOF)
                 {
-                    return get_token(reader);
+                    return get_token();
                 }
             }
             // check for end of file. don't eat the EOF
@@ -80,9 +84,13 @@ namespace kaleidoscope
             // otheriwise just return the character as its ascii value
             unknown_token token{};
             token.value = last_;
-            last_ = reader.read();
+            last_ = reader_.read();
             return token;
         }
+
+        token_t get_next_token() noexcept { return curr_token_ = get_token(); }
+
+        const token_t &current_token() const noexcept { return curr_token_; }
     };
 } // namespace kaleidoscope
 
