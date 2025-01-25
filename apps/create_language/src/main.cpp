@@ -1,8 +1,11 @@
+#include <memory>
 #include <print>
 #include <string_view>
+#include <utility>
 
 #include "kaleidoscope/buffer_reader.hpp"
 #include "kaleidoscope/lexer.hpp"
+#include "kaleidoscope/parser.hpp"
 #include "kaleidoscope/token_formatter.hpp"
 
 int main(int, char **)
@@ -30,4 +33,8 @@ int main(int, char **)
     token = lexer.get_token(reader);
     std::println("{}", token);
   } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
+
+  auto lhs = std::make_unique<kaleidoscope::VariableExprAST>("x");
+  auto rhs = std::make_unique<kaleidoscope::VariableExprAST>("y");
+  auto result = std::make_unique<kaleidoscope::BinarayExprAST>('+', std::move(lhs), std::move(rhs));
 }
