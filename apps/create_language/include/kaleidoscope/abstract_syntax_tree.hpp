@@ -12,68 +12,60 @@ namespace kaleidoscope::ast {
         };
 
         // numeric literal
-        class number_expression : public expression
+        struct number_expression : public expression
         {
-            double value_{0};
+            double value{0};
 
-        public:
-            explicit number_expression(double value) : value_{value} {}
+            explicit number_expression(double value_) noexcept : value{value_} {}
         };
 
-        class variable_expression : public expression
+        struct variable_expression : public expression
         {
-            std::string name_;
+            std::string name;
 
-        public:
-            explicit variable_expression(const std::string &name) : name_{name} {}
+            explicit variable_expression(const std::string &name_) : name{name_} {}
         };
 
         // binary operator
-        class binary_expression : public expression
+        struct binary_expression : public expression
         {
-            char op_;
-            std::unique_ptr<expression> lhs_, rhs_;
+            char op;
+            std::unique_ptr<expression> lhs, rhs;
 
-        public:
-            explicit binary_expression(char op, std::unique_ptr<expression> lhs,
-                                       std::unique_ptr<expression> rhs)
-                : op_{op}, lhs_(std::move(lhs)), rhs_(std::move(rhs)) {}
+            explicit binary_expression(char op_, std::unique_ptr<expression> lhs_,
+                                       std::unique_ptr<expression> rhs_)
+                : op{op_}, lhs(std::move(lhs_)), rhs(std::move(rhs_)) {}
         };
 
         // function calls
-        class call_expression : public expression
+        struct call_expression : public expression
         {
-            std::string calle_;
-            std::vector<std::unique_ptr<expression>> args_;
+            std::string calle;
+            std::vector<std::unique_ptr<expression>> args;
 
-        public:
-            explicit call_expression(const std::string &calle,
-                                     std::vector<std::unique_ptr<expression>> args)
-                : calle_(calle), args_(std::move(args)) {}
+            explicit call_expression(const std::string &calle_,
+                                     std::vector<std::unique_ptr<expression>> args_)
+                : calle(calle_), args(std::move(args_)) {}
         };
 
         // repersents prototype for a function
-        class prototype
+        struct prototype
         {
-            std::string name_;
-            std::vector<std::string> args_;
+            std::string name;
+            std::vector<std::string> args;
 
-        public:
-            explicit prototype(const std::string &name, std::vector<std::string> args)
-                : name_{name}, args_{std::move(args)} {}
-
-            const std::string &get_name() const { return name_; }
+            explicit prototype(const std::string &name_, std::vector<std::string> args_)
+                : name{name_}, args{std::move(args_)} {}
         };
 
         // represents function definition itself
-        class function
+        struct function
         {
-            std::unique_ptr<prototype> proto_;
-            std::unique_ptr<expression> body_;
+            std::unique_ptr<prototype> proto;
+            std::unique_ptr<expression> body;
 
-        public:
-            explicit function(std::unique_ptr<prototype> proto, std::unique_ptr<expression> body)
-                : proto_{std::move(proto)}, body_{std::move(body)} {}
+            explicit function(std::unique_ptr<prototype> proto_, std::unique_ptr<expression> body_)
+                : proto{std::move(proto_)}, body{std::move(body_)} {}
         };
 }
 

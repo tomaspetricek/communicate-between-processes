@@ -4,6 +4,7 @@
 #include <cassert>
 #include <ctype.h>
 #include <memory>
+#include <print>
 #include <stdio.h>
 #include <string>
 #include <unordered_map>
@@ -79,7 +80,7 @@ namespace kaleidoscope
             std::get<unknown_token>(lexer.current_token()).value !=
                 '(')
         { // simple variable reference // look ahead
-            return std::make_unique<ast::variable_expression>(identifier);
+            return std::make_unique<ast::variable_expression>(std::move(identifier));
         }
         lexer.get_next_token(); // eat (
         std::vector<std::unique_ptr<ast::expression>> args;
@@ -325,9 +326,16 @@ namespace kaleidoscope
     template <class Lexer>
     static void handle_extern(Lexer &lexer)
     {
-        if (parse_extern(lexer))
+        const auto extern_parsed = parse_extern(lexer);
+
+        if (extern_parsed)
         {
             fprintf(stdout, "parsed an extern\n");
+            std::println("name: {}", extern_parsed->name);
+
+            for (const auto& arg : extern_parsed->args) {
+                std::println("    arg: {}", arg);
+            }
         }
         else
         {
