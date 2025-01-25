@@ -3,6 +3,7 @@
 #include <string_view>
 #include <utility>
 
+#include "kaleidoscope/abstract_syntax_tree.hpp"
 #include "kaleidoscope/buffer_reader.hpp"
 #include "kaleidoscope/lexer.hpp"
 #include "kaleidoscope/parser.hpp"
