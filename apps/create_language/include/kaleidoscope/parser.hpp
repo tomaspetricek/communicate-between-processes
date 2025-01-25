@@ -1,9 +1,11 @@
 #ifndef KALEIDOSCOPE_PARSER_HPP
 #define KALEIDOSCOPE_PARSER_HPP
 
+#include <ctype.h>
 #include <memory>
 #include <stdio.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "kaleidoscope/lexer.hpp"
@@ -195,6 +197,78 @@ namespace kaleidoscope
         case '(':
             return ParseParenExpr();
         }
+    }
+
+    // holds precedence for each binary operator that is defined
+    static std::unordered_map<char, int> BinopPrecedence{
+        {'<', 10},
+        {'+', 20},
+        {'-', 30},
+        {'*', 40} // highest
+    };
+
+    // get the precedence of the pending binary operator token
+    static int GetTokPrecendence() {
+        if (!isascii(CurTok)) {
+            return -1;
+        }
+
+        // make sure that it's declared in the map
+        const int TokPrec = BinopPrecedence[CurTok];
+
+        if (TokPrec <= 0) {
+            return -1;
+        }
+        return TokPrec;
+    }
+
+    // binoprhs
+    //  ::= ('+' primary)
+    static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS) {
+        // if it is binop find it's precedence
+        while (true) {
+            int TokPrec = GetTokPrecendence();
+
+            // if this is a binop that binds at least as tightly as the current binop,
+            // consume it, otherwise we are done
+            if (TokPrec < ExprPrec) {
+                return LHS;
+            }
+
+            // know that it is binop
+            int BinOp = CurTok;
+            getNextToken(); // eat binop
+
+            // parse the primary expression after the binary operator
+            auto RHS = ParsePrimary();
+
+            if (!RHS) {
+                return nullptr;
+            }
+            // if binop binds less tightly with rhs than the operator rhs, let
+            // the pending operator take rhs as its lhs
+            int NextPrec = GetTokPrecendence();
+
+            if (TokPrec < NextPrec) {
+                RHS = ParseBinOpRHS(TokPrec+1, std::move(RHS));
+
+                if (!RHS) {
+                    return nullptr;
+                }
+            }
+            LHS = std::make_unique<BinarayExprAST>(BinOp, std::move(LHS), std::move(RHS));
+        }
+    }
+
+    // expression
+    //  ::= primary binoprhs
+    static std::unique_ptr<ExprAST> ParseEpression() noexcept {
+        auto lhs = ParsePrimary();
+
+        if (!lhs) {
+            return nullptr;
+        }
+        return ParseBinOpRHS(0, std::move(lhs));
     }
 } // namespace kaleidoscope
 
