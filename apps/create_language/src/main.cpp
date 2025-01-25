@@ -34,9 +34,9 @@ int main(int, char **)
     std::println("{}", token);
   } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
 
-  auto lhs = std::make_unique<kaleidoscope::VariableExprAST>("x");
-  auto rhs = std::make_unique<kaleidoscope::VariableExprAST>("y");
-  auto result = std::make_unique<kaleidoscope::BinarayExprAST>('+', std::move(lhs), std::move(rhs));
+  auto lhs = std::make_unique<kaleidoscope::ast::variable_expression>("x");
+  auto rhs = std::make_unique<kaleidoscope::ast::variable_expression>("y");
+  auto result = std::make_unique<kaleidoscope::ast::binary_expression>('+', std::move(lhs), std::move(rhs));
 
-  kaleidoscope::MainLoop();
+  kaleidoscope::main_loop();
 }
