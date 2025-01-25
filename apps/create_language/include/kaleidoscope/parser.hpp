@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "kaleidoscope/lexer.hpp"
+#include "kaleidoscope/original/lexer.hpp"
 
 // https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl02.html
 namespace kaleidoscope
