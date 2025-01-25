@@ -37,4 +37,6 @@ int main(int, char **)
   auto lhs = std::make_unique<kaleidoscope::VariableExprAST>("x");
   auto rhs = std::make_unique<kaleidoscope::VariableExprAST>("y");
   auto result = std::make_unique<kaleidoscope::BinarayExprAST>('+', std::move(lhs), std::move(rhs));
+
+  kaleidoscope::MainLoop();
 }

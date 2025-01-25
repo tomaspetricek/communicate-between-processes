@@ -104,6 +104,8 @@ namespace kaleidoscope
         return nullptr;
     }
 
+    static std::unique_ptr<ExprAST> ParseExpression();
+
     // numberexpr ::= number
     static std::unique_ptr<ExprAST> ParseNumberExpr()
     {
@@ -267,7 +269,7 @@ namespace kaleidoscope
 
     // expression
     //  ::= primary binoprhs
-    static std::unique_ptr<ExprAST> ParseEpression() noexcept
+    static std::unique_ptr<ExprAST> ParseExpression()
     {
         auto lhs = ParsePrimary();
 
@@ -276,6 +278,140 @@ namespace kaleidoscope
             return nullptr;
         }
         return ParseBinOpRHS(0, std::move(lhs));
+    }
+
+    // prototype
+    //  ::= id '(' id* ')'
+    static std::unique_ptr<PrototypeAST> ParsePrototype()
+    {
+        if (CurTok != tok_identifier)
+        {
+            return LogErrorP("expected function name in prototype");
+        }
+        std::string FnName = IdentifierStr;
+        getNextToken();
+
+        if (CurTok != '(')
+        {
+            return LogErrorP("expected '(' in prototype");
+        }
+
+        // read list of argument names
+        std::vector<std::string> ArgNames;
+
+        while (getNextToken() == tok_identifier)
+        {
+            ArgNames.push_back(IdentifierStr);
+        }
+        if (CurTok != ')')
+        {
+            return LogErrorP("Expected ')' in prototype");
+        }
+        // success
+        getNextToken(); // eat ')'
+        return std::make_unique<PrototypeAST>(std::move(FnName), std::move(ArgNames));
+    }
+
+    // definition ::= 'def' prototype expression
+    static std::unique_ptr<FunctionAST> ParseDefinition()
+    {
+        getNextToken(); // eat def
+        auto Proto = ParsePrototype();
+
+        if (!Proto)
+        {
+            return nullptr;
+        }
+        if (auto E = ParseExpression())
+        {
+            return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+        }
+        return nullptr;
+    }
+
+    // external ::= 'extern' prototype
+    static std::unique_ptr<PrototypeAST> ParseExtern()
+    {
+        getNextToken(); // eat extern
+        return ParsePrototype();
+    }
+
+    // toplevelexpr := expression
+    static std::unique_ptr<FunctionAST> ParseTopLevelExpr()
+    {
+        if (auto E = ParseExpression())
+        {
+            // make anonymous proto
+            auto Proto = std::make_unique<PrototypeAST>("", std::vector<std::string>{});
+            return std::make_unique<FunctionAST>(std::move(Proto), std::move(E));
+        }
+        return nullptr;
+    }
+
+    static void HandleDefinition()
+    {
+        if (ParseDefinition())
+        {
+            fprintf(stdout, "parsed a function definition.\n");
+        }
+        else
+        {
+            // skip token for error recovery.
+            getNextToken();
+        }
+    }
+
+    static void HandleExtern()
+    {
+        if (ParseExtern())
+        {
+            fprintf(stdout, "parsed an extern\n");
+        }
+        else
+        {
+            // skip token for error recovery.
+            getNextToken();
+        }
+    }
+
+    static void HandleTopLevelExpression()
+    {
+        // Evaluate a top-level expression into an anonymous function.
+        if (ParseTopLevelExpr())
+        {
+            fprintf(stdout, "parsed a top-level expr\n");
+        }
+        else
+        {
+            // skip token for error recovery.
+            getNextToken();
+        }
+    }
+
+    // top := definition | external | expression
+    static void MainLoop()
+    {
+        while (true)
+        {
+            fprintf(stdout, "ready> ");
+            switch (CurTok)
+            {
+            case tok_eof:
+                return;
+            case ';': // ignore top level semicolons
+                getNextToken();
+                break;
+            case tok_def:
+                HandleDefinition();
+                break;
+            case tok_extern:
+                HandleExtern();
+                break;
+            default:
+                HandleTopLevelExpression();
+                break;
+            }
+        }
     }
 } // namespace kaleidoscope
 
