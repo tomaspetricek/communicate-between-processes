@@ -88,10 +88,7 @@ namespace kaleidoscope
     static int CurTok; // is current token that the parser is looking at
 
     // updates current token
-    static int getNextToken()
-    {
-        return CurTok = gettok();
-    }
+    static int getNextToken() { return CurTok = gettok(); }
 
     // helpers for error handling
     std::unique_ptr<ExprAST> LogError(const char *Str)
@@ -201,22 +198,22 @@ namespace kaleidoscope
 
     // holds precedence for each binary operator that is defined
     static std::unordered_map<char, int> BinopPrecedence{
-        {'<', 10},
-        {'+', 20},
-        {'-', 30},
-        {'*', 40} // highest
+        {'<', 10}, {'+', 20}, {'-', 30}, {'*', 40} // highest
     };
 
     // get the precedence of the pending binary operator token
-    static int GetTokPrecendence() {
-        if (!isascii(CurTok)) {
+    static int GetTokPrecendence()
+    {
+        if (!isascii(CurTok))
+        {
             return -1;
         }
 
         // make sure that it's declared in the map
         const int TokPrec = BinopPrecedence[CurTok];
 
-        if (TokPrec <= 0) {
+        if (TokPrec <= 0)
+        {
             return -1;
         }
         return TokPrec;
@@ -224,14 +221,18 @@ namespace kaleidoscope
 
     // binoprhs
     //  ::= ('+' primary)
-    static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec, std::unique_ptr<ExprAST> LHS) {
+    static std::unique_ptr<ExprAST> ParseBinOpRHS(int ExprPrec,
+                                                  std::unique_ptr<ExprAST> LHS)
+    {
         // if it is binop find it's precedence
-        while (true) {
+        while (true)
+        {
             int TokPrec = GetTokPrecendence();
 
             // if this is a binop that binds at least as tightly as the current binop,
             // consume it, otherwise we are done
-            if (TokPrec < ExprPrec) {
+            if (TokPrec < ExprPrec)
+            {
                 return LHS;
             }
 
@@ -242,30 +243,36 @@ namespace kaleidoscope
             // parse the primary expression after the binary operator
             auto RHS = ParsePrimary();
 
-            if (!RHS) {
+            if (!RHS)
+            {
                 return nullptr;
             }
             // if binop binds less tightly with rhs than the operator rhs, let
             // the pending operator take rhs as its lhs
             int NextPrec = GetTokPrecendence();
 
-            if (TokPrec < NextPrec) {
-                RHS = ParseBinOpRHS(TokPrec+1, std::move(RHS));
+            if (TokPrec < NextPrec)
+            {
+                RHS = ParseBinOpRHS(TokPrec + 1, std::move(RHS));
 
-                if (!RHS) {
+                if (!RHS)
+                {
                     return nullptr;
                 }
             }
-            LHS = std::make_unique<BinarayExprAST>(BinOp, std::move(LHS), std::move(RHS));
+            LHS =
+                std::make_unique<BinarayExprAST>(BinOp, std::move(LHS), std::move(RHS));
         }
     }
 
     // expression
     //  ::= primary binoprhs
-    static std::unique_ptr<ExprAST> ParseEpression() noexcept {
+    static std::unique_ptr<ExprAST> ParseEpression() noexcept
+    {
         auto lhs = ParsePrimary();
 
-        if (!lhs) {
+        if (!lhs)
+        {
             return nullptr;
         }
         return ParseBinOpRHS(0, std::move(lhs));
