@@ -3,23 +3,30 @@
 
 #include <memory>
 #include <string>
+#include <variant>
 #include <vector>
 
-namespace kaleidoscope::ast {
-        struct expression
+namespace kaleidoscope
+{
+    namespace ast
+    {
+        struct expression;
+
+        struct expression_deleter
         {
-            virtual ~expression() = default;
+            void operator()(expression *expr);
         };
+        using expression_ptr = std::unique_ptr<expression, expression_deleter>;
 
         // numeric literal
-        struct number_expression : public expression
+        struct number_expression
         {
             double value{0};
 
             explicit number_expression(double value_) noexcept : value{value_} {}
         };
 
-        struct variable_expression : public expression
+        struct variable_expression
         {
             std::string name;
 
@@ -27,25 +34,31 @@ namespace kaleidoscope::ast {
         };
 
         // binary operator
-        struct binary_expression : public expression
+        struct binary_expression
         {
             char op;
-            std::unique_ptr<expression> lhs, rhs;
+            expression_ptr lhs, rhs;
 
-            explicit binary_expression(char op_, std::unique_ptr<expression> lhs_,
-                                       std::unique_ptr<expression> rhs_)
+            explicit binary_expression(char op_, expression_ptr lhs_, expression_ptr rhs_)
                 : op{op_}, lhs(std::move(lhs_)), rhs(std::move(rhs_)) {}
         };
 
         // function calls
-        struct call_expression : public expression
+        struct call_expression
         {
             std::string calle;
-            std::vector<std::unique_ptr<expression>> args;
+            std::vector<expression_ptr> args;
 
             explicit call_expression(const std::string &calle_,
-                                     std::vector<std::unique_ptr<expression>> args_)
+                                     std::vector<expression_ptr> args_)
                 : calle(calle_), args(std::move(args_)) {}
+        };
+
+        struct expression : std::variant<number_expression, variable_expression,
+                                         binary_expression, call_expression>
+        {
+            using std::variant<number_expression, variable_expression, binary_expression,
+                               call_expression>::variant;
         };
 
         // repersents prototype for a function
@@ -62,11 +75,19 @@ namespace kaleidoscope::ast {
         struct function
         {
             std::unique_ptr<prototype> proto;
-            std::unique_ptr<expression> body;
+            expression_ptr body;
 
-            explicit function(std::unique_ptr<prototype> proto_, std::unique_ptr<expression> body_)
+            explicit function(std::unique_ptr<prototype> proto_, expression_ptr body_)
                 : proto{std::move(proto_)}, body{std::move(body_)} {}
         };
-}
+    } // namespace ast
+
+    template <class Expression, class... Args>
+    ast::expression_ptr make_expression(Args &&...args)
+    {
+        return ast::expression_ptr{
+            new ast::expression{Expression{std::forward<Args>(args)...}}};
+    }
+} // namespace kaleidoscope
 
 #endif // KALEIDOSCOPE_ABSTRACT_SYNTAX_TREE_HPP

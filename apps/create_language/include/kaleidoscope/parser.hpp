@@ -17,7 +17,7 @@
 namespace kaleidoscope
 {
     // helpers for error handling
-    std::unique_ptr<ast::expression> log_error(const char *message)
+    ast::expression_ptr log_error(const char *message)
     {
         fprintf(stderr, "error: %s\n", message);
         return nullptr;
@@ -31,14 +31,14 @@ namespace kaleidoscope
     }
 
     template <class Lexer>
-    static std::unique_ptr<ast::expression> parse_expression(Lexer &lexer);
+    static ast::expression_ptr parse_expression(Lexer &lexer);
 
     // numberexpr ::= number
     template <class Lexer>
-    static std::unique_ptr<ast::expression> parse_number_expression(Lexer &lexer)
+    static ast::expression_ptr parse_number_expression(Lexer &lexer)
     {
         assert(std::holds_alternative<number_token>(lexer.current_token()));
-        auto result = std::make_unique<ast::number_expression>(
+        auto result = make_expression<ast::number_expression>(
             std::get<number_token>(lexer.current_token()).number);
         lexer.get_next_token(); // consume the number
         return std::move(result);
@@ -46,8 +46,7 @@ namespace kaleidoscope
 
     // parentexpr ::= '(' expression ')'
     template <class Lexer>
-    static std::unique_ptr<ast::expression>
-    parse_parenthesis_expression(Lexer &lexer)
+    static ast::expression_ptr parse_parenthesis_expression(Lexer &lexer)
     {
         lexer.get_next_token();              // eat (
         auto expr = parse_expression(lexer); // allows to handle recursive grammars
@@ -69,21 +68,21 @@ namespace kaleidoscope
     //  ::= identifier
     //  ::= identifier '(' expression* ')'
     template <class Lexer>
-    static std::unique_ptr<ast::expression>
-    parse_identifier_expression(Lexer &lexer)
+    static ast::expression_ptr parse_identifier_expression(Lexer &lexer)
     {
         assert(std::holds_alternative<identifier_token>(lexer.current_token()));
-        std::string identifier = std::get<identifier_token>(lexer.current_token()).identifier;
+        std::string identifier =
+            std::get<identifier_token>(lexer.current_token()).identifier;
         lexer.get_next_token(); // eat identifier
 
         if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
             std::get<unknown_token>(lexer.current_token()).value !=
                 '(')
         { // simple variable reference // look ahead
-            return std::make_unique<ast::variable_expression>(std::move(identifier));
+            return make_expression<ast::variable_expression>(std::move(identifier));
         }
         lexer.get_next_token(); // eat (
-        std::vector<std::unique_ptr<ast::expression>> args;
+        std::vector<ast::expression_ptr> args;
 
         if (!std::holds_alternative<unknown_token>(lexer.current_token()) ||
             std::get<unknown_token>(lexer.current_token()).value != ')')
@@ -112,8 +111,8 @@ namespace kaleidoscope
             }
         }
         lexer.get_next_token();
-        return std::make_unique<ast::call_expression>(std::move(identifier),
-                                                      std::move(args));
+        return make_expression<ast::call_expression>(std::move(identifier),
+                                                     std::move(args));
     }
 
     // primary
@@ -121,7 +120,7 @@ namespace kaleidoscope
     //  ::= numberexpr
     //  ::= parenexpr
     template <class Lexer>
-    static std::unique_ptr<ast::expression> parse_primary(Lexer &lexer)
+    static ast::expression_ptr parse_primary(Lexer &lexer)
     {
         if (std::holds_alternative<identifier_token>(lexer.current_token()))
         {
@@ -172,9 +171,9 @@ namespace kaleidoscope
     // binoprhs
     //  ::= ('+' primary)
     template <class Lexer>
-    static std::unique_ptr<ast::expression>
+    static ast::expression_ptr
     parse_binaray_operation_rhs(Lexer &lexer, int expr_precendence,
-                                std::unique_ptr<ast::expression> lhs)
+                                ast::expression_ptr lhs)
     {
         // if it is binop find it's precedence
         while (true)
@@ -213,7 +212,7 @@ namespace kaleidoscope
                     return nullptr;
                 }
             }
-            lhs = std::make_unique<ast::binary_expression>(
+            lhs = make_expression<ast::binary_expression>(
                 binary_operator, std::move(lhs), std::move(rhs));
         }
     }
@@ -221,7 +220,7 @@ namespace kaleidoscope
     // expression
     //  ::= primary binoprhs
     template <class Lexer>
-    static std::unique_ptr<ast::expression> parse_expression(Lexer &lexer)
+    static ast::expression_ptr parse_expression(Lexer &lexer)
     {
         auto lhs = parse_primary(lexer);
 
@@ -266,7 +265,7 @@ namespace kaleidoscope
         // success
         lexer.get_next_token(); // eat ')'
         return std::make_unique<ast::prototype>(std::move(function_name),
-                                                std::move(arg_names));
+                                               std::move(arg_names));
     }
 
     // definition ::= 'def' prototype expression
@@ -297,7 +296,8 @@ namespace kaleidoscope
 
     // toplevelexpr := expression
     template <class Lexer>
-    static std::unique_ptr<ast::function> parse_top_level_expression(Lexer &lexer)
+    static std::unique_ptr<ast::function>
+    parse_top_level_expression(Lexer &lexer)
     {
         if (auto expr = parse_expression(lexer))
         {
@@ -333,7 +333,8 @@ namespace kaleidoscope
             fprintf(stdout, "parsed an extern\n");
             std::println("name: {}", extern_parsed->name);
 
-            for (const auto& arg : extern_parsed->args) {
+            for (const auto &arg : extern_parsed->args)
+            {
                 std::println("    arg: {}", arg);
             }
         }

@@ -33,8 +33,8 @@ int main(int, char **)
     std::println("{}", token);
   } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
 
-  auto lhs = std::make_unique<kaleidoscope::ast::variable_expression>("x");
-  auto rhs = std::make_unique<kaleidoscope::ast::variable_expression>("y");
+  auto lhs = kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>("x");
+  auto rhs = kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>("y");
   auto result = std::make_unique<kaleidoscope::ast::binary_expression>('+', std::move(lhs), std::move(rhs));
 
   std::string sample2{
