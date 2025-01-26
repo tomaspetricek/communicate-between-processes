@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "kaleidoscope/abstract_syntax_tree.hpp"
+#include "kaleidoscope/abstract_syntax_tree_formatter.hpp"
 #include "kaleidoscope/buffer_reader.hpp"
 #include "kaleidoscope/lexer.hpp"
 #include "kaleidoscope/parser.hpp"
@@ -42,7 +43,12 @@ int main(int, char **)
       "extern cos(arg);"
       "extern atan2(arg1 arg2);"
       ""
-      "atan2(sin(.4), cos(42))"};
+      "atan2(sin(.4), cos(42))"
+      "1 + 2 * 4"};
   kaleidoscope::buffer_reader sample2_reader{sample2};
   kaleidoscope::main_loop(sample2_reader);
+
+  auto expr = kaleidoscope::make_expression<kaleidoscope::ast::number_expression>(10);
+  auto node = kaleidoscope::make_node(std::move(expr));
+  kaleidoscope::print(node);
 }
