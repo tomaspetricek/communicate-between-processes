@@ -20,6 +20,50 @@ namespace kaleidoscope
         symbol_pair_t{')', right_parenthesis_token{}},
         symbol_pair_t{',', comma_token{}});
 
+    template <class Value>
+    Value to_digit(char digit) noexcept
+    {
+        constexpr char first_digit{'0'};
+        assert(digit >= first_digit);
+        return static_cast<Value>(digit - first_digit);
+    }
+
+    template <class Reader>
+    double lex_number(char &last, Reader &reader) noexcept
+    {
+        double num{0};
+        constexpr double digit_count{10};
+
+        if (isdigit(last))
+        {
+            num *= digit_count;
+            const auto digit = to_digit<double>(last);
+            assert(digit != double{0});
+            num += digit;
+            last = reader.read();
+        }
+        while (isdigit(last))
+        {
+            num *= digit_count;
+            num += to_digit<double>(last);
+            last = reader.read();
+        }
+        if (last != '.')
+        {
+            return num;
+        }
+        last = reader.read();
+        double factor{1.};
+
+        while (isdigit(last))
+        {
+            factor /= digit_count;
+            num += factor * to_digit<double>(last);
+            last = reader.read();
+        }
+        return num;
+    }
+
     template <class Reader>
     class lexer
     {
@@ -65,17 +109,7 @@ namespace kaleidoscope
             }
             if (isdigit(last_) || last_ == '.')
             {
-                std::string num;
-
-                // need better error checking
-                do
-                {
-                    num += last_;
-                    last_ = reader_.read();
-                } while (isdigit(last_) || last_ == '.');
-
-                // handle error
-                const auto value = strtod(num.c_str(), 0);
+                const auto value = lex_number(last_, reader_);
                 return number_token{value};
             }
             if (last_ == '#')
