@@ -7,11 +7,19 @@
 #include <string>
 #include <variant>
 
+#include "etl/flat_map.h"
+
 #include "kaleidoscope/token.hpp"
 
 // src: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html
 namespace kaleidoscope
 {
+    using symbol_pair_t = std::pair<char, token_t>;
+    static const auto symbols = etl::make_flat_map<char, token_t>(
+        symbol_pair_t{'(', left_parenthesis_token{}},
+        symbol_pair_t{')', right_parenthesis_token{}},
+        symbol_pair_t{',', comma_token{}});
+
     template <class Reader>
     class lexer
     {
@@ -29,15 +37,12 @@ namespace kaleidoscope
             {
                 last_ = reader_.read();
             }
-            if ('(' == last_)
+            const auto it = symbols.find(last_);
+
+            if (it != symbols.cend())
             {
-                last_ = reader_.read(); // eat '('
-                return left_parenthesis_token{};
-            }
-            if (')' == last_)
-            {
-                last_ = reader_.read(); // eat ')'
-                return right_parenthesis_token{};
+                last_ = reader_.read(); // eat symbol
+                return it->second;
             }
             if (isalpha(last_))
             {

@@ -60,8 +60,7 @@ namespace kaleidoscope
         {
             return ast::expression{};
         }
-        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-            std::get<unknown_token>(lexer.current_token()).value != ')')
+        if (!std::holds_alternative<right_parenthesis_token>(lexer.current_token()))
         {
             return log_error("expected ')'");
         }
@@ -105,8 +104,7 @@ namespace kaleidoscope
                 {
                     break;
                 }
-                if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-                    std::get<unknown_token>(lexer.current_token()).value != ',')
+                if (!std::holds_alternative<comma_token>(lexer.current_token()))
                 {
                     return log_error("Expected ')' or ',' in argument list");
                 }

@@ -15,6 +15,9 @@ namespace kaleidoscope
     struct right_parenthesis_token
     {
     };
+    struct comma_token
+    {
+    };
 
     // commands
     struct def_token
@@ -38,9 +41,10 @@ namespace kaleidoscope
     {
         char value;
     };
-    using token_t = std::variant<eof_token, left_parenthesis_token,
-                                 right_parenthesis_token, def_token, extern_token,
-                                 identifier_token, number_token, unknown_token>;
+    using token_t =
+        std::variant<eof_token, left_parenthesis_token, right_parenthesis_token,
+                     comma_token, def_token, extern_token, identifier_token,
+                     number_token, unknown_token>;
 } // namespace kaleidoscope
 
 #endif // KALEIDOSCOPE_TOKEN_HPP

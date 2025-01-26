@@ -117,6 +117,20 @@ struct std::formatter<kaleidoscope::right_parenthesis_token>
 };
 
 template <>
+struct std::formatter<kaleidoscope::comma_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::comma_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[comma]: {}", ',');
+    }
+};
+
+template <>
 struct std::formatter<kaleidoscope::token_t> : std::formatter<std::string>
 {
     constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
