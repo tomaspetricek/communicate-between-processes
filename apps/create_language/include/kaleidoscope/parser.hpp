@@ -80,17 +80,14 @@ namespace kaleidoscope
             std::get<identifier_token>(lexer.current_token()).identifier;
         lexer.get_next_token(); // eat identifier
 
-        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-            std::get<unknown_token>(lexer.current_token()).value !=
-                '(')
+        if (!std::holds_alternative<left_parenthesis_token>(lexer.current_token()))
         { // simple variable reference // look ahead
             return make_expression<ast::variable_expression>(std::move(identifier));
         }
         lexer.get_next_token(); // eat (
         std::vector<ast::expression> args;
 
-        if (!std::holds_alternative<unknown_token>(lexer.current_token()) ||
-            std::get<unknown_token>(lexer.current_token()).value != ')')
+        if (!std::holds_alternative<right_parenthesis_token>(lexer.current_token()))
         {
             while (true)
             {
@@ -104,8 +101,7 @@ namespace kaleidoscope
                 {
                     return ast::expression{};
                 }
-                if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-                    std::get<unknown_token>(lexer.current_token()).value == ')')
+                if (std::holds_alternative<right_parenthesis_token>(lexer.current_token()))
                 {
                     break;
                 }
@@ -251,8 +247,7 @@ namespace kaleidoscope
             std::get<identifier_token>(lexer.current_token()).identifier;
         lexer.get_next_token();
 
-        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-            std::get<unknown_token>(lexer.current_token()).value != '(')
+        if (!std::holds_alternative<left_parenthesis_token>(lexer.current_token()))
         {
             return log_error_prototype("expected '(' in prototype");
         }
@@ -264,8 +259,7 @@ namespace kaleidoscope
             arg_names.push_back(
                 std::get<identifier_token>(lexer.current_token()).identifier);
         }
-        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-            std::get<unknown_token>(lexer.current_token()).value != ')')
+        if (!std::holds_alternative<right_parenthesis_token>(lexer.current_token()))
         {
             return log_error_prototype("expected ')' in prototype");
         }

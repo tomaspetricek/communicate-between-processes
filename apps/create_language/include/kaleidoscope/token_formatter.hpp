@@ -89,6 +89,34 @@ struct std::formatter<kaleidoscope::unknown_token>
 };
 
 template <>
+struct std::formatter<kaleidoscope::left_parenthesis_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::left_parenthesis_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[left parenthesis]: {}", '(');
+    }
+};
+
+template <>
+struct std::formatter<kaleidoscope::right_parenthesis_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::right_parenthesis_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[right parenthesis]: {}", ')');
+    }
+};
+
+template <>
 struct std::formatter<kaleidoscope::token_t> : std::formatter<std::string>
 {
     constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }

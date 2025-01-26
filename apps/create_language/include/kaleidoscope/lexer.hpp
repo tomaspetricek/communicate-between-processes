@@ -29,6 +29,16 @@ namespace kaleidoscope
             {
                 last_ = reader_.read();
             }
+            if ('(' == last_)
+            {
+                last_ = reader_.read(); // eat '('
+                return left_parenthesis_token{};
+            }
+            if (')' == last_)
+            {
+                last_ = reader_.read(); // eat ')'
+                return right_parenthesis_token{};
+            }
             if (isalpha(last_))
             {
                 std::string indentifier;
