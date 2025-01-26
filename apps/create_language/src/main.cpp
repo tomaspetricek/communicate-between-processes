@@ -28,27 +28,31 @@ int main(int, char **)
   kaleidoscope::token_t token;
   std::println("tokens:");
 
-  do
+  while (lexer.get_token(token))
   {
-    token = lexer.get_token();
     std::println("{}", token);
-  } while (!std::holds_alternative<kaleidoscope::eof_token>(token));
+  }
 
-  auto lhs = kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>("x");
-  auto rhs = kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>("y");
-  auto result = std::make_unique<kaleidoscope::ast::binary_expression>('+', std::move(lhs), std::move(rhs));
+  auto lhs =
+      kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>(
+          "x");
+  auto rhs =
+      kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>(
+          "y");
+  auto result = std::make_unique<kaleidoscope::ast::binary_expression>(
+      '+', std::move(lhs), std::move(rhs));
 
-  std::string sample2{
-      "extern sin(arg);"
-      "extern cos(arg);"
-      "extern atan2(arg1 arg2);"
-      ""
-      "atan2(sin(.4), cos(42))"
-      "1 + 2 * 4"};
+  std::string sample2{"extern sin(arg);"
+                      "extern cos(arg);"
+                      "extern atan2(arg1 arg2);"
+                      ""
+                      "atan2(sin(.4), cos(42))"
+                      "1 + 2 * 5"};
   kaleidoscope::buffer_reader sample2_reader{sample2};
   kaleidoscope::main_loop(sample2_reader);
 
-  auto expr = kaleidoscope::make_expression<kaleidoscope::ast::number_expression>(10);
+  auto expr =
+      kaleidoscope::make_expression<kaleidoscope::ast::number_expression>(10);
   auto node = kaleidoscope::make_node(std::move(expr));
   kaleidoscope::print(node);
 }

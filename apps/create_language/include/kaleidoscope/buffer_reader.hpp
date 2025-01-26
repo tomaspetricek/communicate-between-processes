@@ -14,16 +14,23 @@ namespace kaleidoscope
         constexpr explicit buffer_reader(const std::string_view &buffer) noexcept
             : buffer_{buffer} {}
 
-        constexpr char read() noexcept
+        constexpr bool read(char &value) noexcept
         {
             if (index_ == buffer_.size())
             {
-                return EOF;
+                return false;
             }
-            return buffer_[index_++];
+            value = buffer_[index_++];
+            return true;
         }
 
-        void reset() noexcept {
+        constexpr bool empty() const noexcept
+        {
+            return index_ == buffer_.size();
+        }
+
+        void reset() noexcept
+        {
             index_ = 0;
         }
     };

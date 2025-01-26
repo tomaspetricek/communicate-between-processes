@@ -9,6 +9,7 @@
 
 #include "etl/flat_map.h"
 
+#include "kaleidoscope/buffer_reader.hpp"
 #include "kaleidoscope/token.hpp"
 
 // src: https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl01.html
@@ -28,8 +29,7 @@ namespace kaleidoscope
         return static_cast<Value>(digit - first_digit);
     }
 
-    template <class Reader>
-    double lex_number(char &last, Reader &reader) noexcept
+    double lex_number(char &last, buffer_reader &reader) noexcept
     {
         double num{0};
         constexpr double digit_count{10};
@@ -40,104 +40,119 @@ namespace kaleidoscope
             const auto digit = to_digit<double>(last);
             assert(digit != double{0});
             num += digit;
-            last = reader.read();
+            reader.read(last);
         }
-        while (isdigit(last))
+        while (!reader.empty() && isdigit(last))
         {
             num *= digit_count;
             num += to_digit<double>(last);
-            last = reader.read();
+            reader.read(last);
         }
         if (last != '.')
         {
             return num;
         }
-        last = reader.read();
+        reader.read(last);
         double factor{1.};
 
-        while (isdigit(last))
+        while (!reader.empty() && isdigit(last))
         {
             factor /= digit_count;
             num += factor * to_digit<double>(last);
-            last = reader.read();
+            reader.read(last);
         }
         return num;
     }
 
-    template <class Reader>
     class lexer
     {
         char last_{' '};
         token_t curr_token_;
-        Reader &reader_;
+        buffer_reader &reader_;
 
     public:
-        explicit lexer(Reader &reader) noexcept : reader_{reader} {}
+        explicit lexer(buffer_reader &reader) noexcept : reader_{reader} {}
 
-        token_t get_token() noexcept
+        bool get_token(token_t &result) noexcept
         {
+            if (reader_.empty())
+            {
+                return false;
+            }
             // skip any whitespace
             while (isspace(last_))
             {
-                last_ = reader_.read();
+                if (!reader_.read(last_)){
+                    return false;
+                }
             }
             const auto it = symbols.find(last_);
 
             if (it != symbols.cend())
             {
-                last_ = reader_.read(); // eat symbol
-                return it->second;
+                reader_.read(last_); // eat symbol
+                result = it->second;
+                return true;
             }
             if (isalpha(last_))
             {
                 std::string indentifier;
                 indentifier += last_;
 
-                while (isalnum((last_ = reader_.read())))
+                while (reader_.read(last_) && isalnum((last_)))
                 {
                     indentifier += last_;
                 }
                 if (indentifier == "def")
                 {
-                    return def_token{};
+                    result = def_token{};
+                    return true;
                 }
                 if (indentifier == "extern")
                 {
-                    return extern_token{};
+                    result = extern_token{};
+                    return true;
                 }
-                return identifier_token{std::move(indentifier)};
+                result = identifier_token{std::move(indentifier)};
+                return true;
             }
             if (isdigit(last_) || last_ == '.')
             {
                 const auto value = lex_number(last_, reader_);
-                return number_token{value};
+                result = number_token{value};
+                return true;
             }
             if (last_ == '#')
             {
                 // comment until end of line
-                do
+                while (reader_.read(last_) && last_ != EOF && last_ != '\n' &&
+                       last_ != '\r')
                 {
-                    last_ = reader_.read();
-                } while (last_ != EOF && last_ != '\n' && last_ != '\r');
-
+                }
                 if (last_ != EOF)
                 {
-                    return get_token();
+                    return get_token(result);
                 }
             }
             // check for end of file. don't eat the EOF
             if (last_ == EOF)
             {
-                return eof_token{};
+                result = eof_token{};
+                return true;
             }
             // otheriwise just return the character as its ascii value
-            unknown_token token{};
-            token.value = last_;
-            last_ = reader_.read();
-            return token;
+            result = unknown_token{last_};
+            reader_.read(last_);
+            return true;
         }
 
-        token_t get_next_token() noexcept { return curr_token_ = get_token(); }
+        token_t get_next_token() noexcept
+        {
+            if (!get_token(curr_token_)) {
+                curr_token_ = eof_token{};
+            }
+            return curr_token_;
+        }
 
         const token_t &current_token() const noexcept { return curr_token_; }
     };
