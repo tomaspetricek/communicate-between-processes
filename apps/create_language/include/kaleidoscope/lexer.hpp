@@ -19,7 +19,11 @@ namespace kaleidoscope
     static const auto symbols = etl::make_flat_map<char, token_t>(
         symbol_pair_t{'(', left_parenthesis_token{}},
         symbol_pair_t{')', right_parenthesis_token{}},
-        symbol_pair_t{',', comma_token{}});
+        symbol_pair_t{',', comma_token{}},
+        symbol_pair_t{'<', less_token{}},
+        symbol_pair_t{'+', plus_token{}},
+        symbol_pair_t{'-', minus_token{}},
+        symbol_pair_t{'*', star_token{}});
 
     template <class Value>
     Value to_digit(char digit) noexcept

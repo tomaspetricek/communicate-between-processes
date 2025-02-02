@@ -4,13 +4,12 @@
 #include <cassert>
 #include <ctype.h>
 #include <memory>
+#include <optional>
 #include <print>
 #include <stdio.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "etl/flat_map.h"
 
 #include "kaleidoscope/abstract_syntax_tree.hpp"
 #include "kaleidoscope/buffer_reader.hpp"
@@ -114,7 +113,7 @@ namespace kaleidoscope
                 lexer.get_next_token();
             }
         }
-        lexer.get_next_token();
+        lexer.get_next_token(); // eat ')'
         return ast::make_expression<ast::call_expression>(std::move(identifier),
                                                           std::move(args));
     }
@@ -144,43 +143,50 @@ namespace kaleidoscope
         return log_error("unknown token when expecting an expression");
     }
 
-    // holds precedence for each binary operator that is defined
-    static std::unordered_map<char, int> binary_operator_precedence{
-        {'<', 10}, {'+', 20}, {'-', 30}, {'*', 40} // highest
-    };
-
     // get the precedence of the pending binary operator token
     static int get_token_precendence(kaleidoscope::lexer &lexer)
     {
-        if (!std::holds_alternative<unknown_token>(lexer.current_token()) ||
-            !isascii(std::get<unknown_token>(lexer.current_token()).value))
-        {
-            return -1;
-        }
-        // make sure that it's declared in the map
-        const int token_precedence =
-            binary_operator_precedence[std::get<unknown_token>(lexer.current_token())
-                                           .value];
+        const auto &token = lexer.current_token();
 
-        if (token_precedence <= 0)
+        if (std::holds_alternative<less_token>(token))
         {
-            return -1;
+            return 10;
         }
-        return token_precedence;
+        if (std::holds_alternative<plus_token>(token))
+        {
+            return 20;
+        }
+        if (std::holds_alternative<minus_token>(token))
+        {
+            return 30;
+        }
+        if (std::holds_alternative<star_token>(token))
+        {
+            return 40;
+        }
+        return -1;
     }
 
-    ast::binary_operator convert_to_binary_operator(char op) noexcept
+    std::optional<ast::binary_operator>
+    get_binary_operator(const token_t &token) noexcept
     {
-        using operator_pair_t = std::pair<char, ast::binary_operator>;
-        static const auto conversion = etl::make_flat_map<char, ast::binary_operator>(
-            operator_pair_t{'<', ast::binary_operator::less_than},
-            operator_pair_t{'+', ast::binary_operator::addition},
-            operator_pair_t{'-', ast::binary_operator::subtraction},
-            operator_pair_t{'*', ast::binary_operator::multiplication});
-
-        const auto &it = conversion.find(op);
-        assert(it != conversion.cend());
-        return it->second;
+        if (std::holds_alternative<less_token>(token))
+        {
+            return ast::binary_operator::less_than;
+        }
+        if (std::holds_alternative<plus_token>(token))
+        {
+            return ast::binary_operator::addition;
+        }
+        if (std::holds_alternative<minus_token>(token))
+        {
+            return ast::binary_operator::subtraction;
+        }
+        if (std::holds_alternative<star_token>(token))
+        {
+            return ast::binary_operator::multiplication;
+        }
+        return std::nullopt;
     }
 
     // binoprhs
@@ -201,7 +207,12 @@ namespace kaleidoscope
                 return lhs;
             }
             // know that it is binop
-            const auto op = std::get<unknown_token>(lexer.current_token()).value;
+            const auto binary_op = get_binary_operator(lexer.current_token());
+
+            if (!binary_op.has_value())
+            {
+                return log_error("unknown binary operator");
+            }
             lexer.get_next_token(); // eat binop
 
             // parse the primary expression after the binary operator
@@ -226,7 +237,7 @@ namespace kaleidoscope
                 }
             }
             lhs = ast::make_expression<ast::binary_expression>(
-                convert_to_binary_operator(op), std::move(lhs), std::move(rhs));
+                binary_op.value(), std::move(lhs), std::move(rhs));
         }
     }
 
@@ -358,7 +369,7 @@ namespace kaleidoscope
 
     static void handle_top_level_expression(kaleidoscope::lexer &lexer)
     {
-        // Evaluate a top-level expression into an anonymous function.
+        // evaluate a top-level expression into an anonymous function.
         const auto expr = parse_top_level_expression(lexer);
 
         if (expr)

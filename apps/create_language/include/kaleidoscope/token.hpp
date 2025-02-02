@@ -41,10 +41,23 @@ namespace kaleidoscope
     {
         char value;
     };
+    struct less_token
+    {
+    };
+    struct plus_token
+    {
+    };
+    struct minus_token
+    {
+    };
+    struct star_token
+    {
+    };
+
     using token_t =
         std::variant<eof_token, left_parenthesis_token, right_parenthesis_token,
                      comma_token, def_token, extern_token, identifier_token,
-                     number_token, unknown_token>;
+                     number_token, unknown_token, less_token, plus_token, minus_token, star_token>;
 } // namespace kaleidoscope
 
 #endif // KALEIDOSCOPE_TOKEN_HPP

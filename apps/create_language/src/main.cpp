@@ -41,7 +41,8 @@ int main(int, char **)
       kaleidoscope::ast::binary_operator::addition, std::move(lhs),
       std::move(rhs));
 
-  std::string sample2{"extern sin(arg);"
+  std::string sample2{
+                      "extern sin(arg);"
                       "extern cos(arg);"
                       "extern atan2(arg1 arg2);"
                       ""

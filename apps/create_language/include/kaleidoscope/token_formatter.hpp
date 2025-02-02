@@ -131,6 +131,62 @@ struct std::formatter<kaleidoscope::comma_token>
 };
 
 template <>
+struct std::formatter<kaleidoscope::less_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::less_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[less]: {}", '<');
+    }
+};
+
+template <>
+struct std::formatter<kaleidoscope::plus_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::plus_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[plus]: {}", '+');
+    }
+};
+
+template <>
+struct std::formatter<kaleidoscope::minus_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::minus_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[minus]: {}", '-');
+    }
+};
+
+template <>
+struct std::formatter<kaleidoscope::star_token>
+    : std::formatter<std::string>
+{
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    template <class FormatContext>
+    auto format(const kaleidoscope::star_token &token,
+                FormatContext &ctx) const
+    {
+        return std::format_to(ctx.out(), "[star]: {}", '*');
+    }
+};
+
+template <>
 struct std::formatter<kaleidoscope::token_t> : std::formatter<std::string>
 {
     constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
