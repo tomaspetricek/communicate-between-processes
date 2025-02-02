@@ -2,6 +2,7 @@
 #define KALEIDOSCOPE_ORIGINAL_PARSER_HPP
 
 #include <ctype.h>
+#include <map>
 #include <memory>
 #include <stdio.h>
 #include <string>
@@ -13,9 +14,22 @@
 // https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl02.html
 namespace kaleidoscope
 {
+    static std::unique_ptr<LLVMContext> TheContext;
+    static std::unique_ptr<IRBuilder<>> Builder;
+    static std::unique_ptr<Module> TheModule; // llvm construct to keep global variables and functions, owns memmory for all IR
+    static std::map<std::string, Value*> NamedValues; // symbol table for the code
+
+    std::unique_ptr<ExprAST> LogError(const char *Str);
+
+    Value *LogErrorV(const char* Str) {
+        LogError(Str);
+        return nullptr;
+    }
+
     struct ExprAST
     {
         virtual ~ExprAST() = default;
+        virtual Value *codegen() = 0;
     };
 
     // numeric literal
@@ -25,6 +39,10 @@ namespace kaleidoscope
 
     public:
         NumberExprAST(double Val) : Val{Val} {}
+
+        Value *codegen() final {
+            return ConstantFP::get(*TheContext, APFloat(Val)); // constant floating poinnt
+        }
     };
 
     class VariableExprAST : public ExprAST
@@ -33,30 +51,89 @@ namespace kaleidoscope
 
     public:
         VariableExprAST(const std::string &Name) : Name{Name} {}
+
+        Value *codegen() final {
+            // look this variable up in the function
+            Value *V = NamedValues[Name];
+
+            if (!V) {
+                LogErrorV("Unnown variable name");
+            }
+            return V;
+        }
     };
 
     // binary operator
-    class BinarayExprAST : public ExprAST
+    class BinaryExprAST : public ExprAST
     {
         char Op;
         std::unique_ptr<ExprAST> LHS, RHS;
 
     public:
-        BinarayExprAST(char Op, std::unique_ptr<ExprAST> LHS,
+        BinaryExprAST(char Op, std::unique_ptr<ExprAST> LHS,
                        std::unique_ptr<ExprAST> RHS)
             : Op{Op}, LHS(std::move(LHS)), RHS(std::move(LHS)) {}
+
+        Value *codegen() final {
+            // code is recursively emitted for the left-hand
+            // side of the expression, then the right-hand side
+            // then we compute the result of the binary expression
+            Value *L = LHS->codegen();
+            Value *R = RHS->codegen();
+
+            if (!L || !R) {
+                return nullptr;
+            }
+            switch (Op) {
+                case '+':
+                    return Builder->CreateFAdd(L, R, "addtmp");
+                case '-':
+                    return Builder->CreateFSub(L, R, "subtmp");
+                case '*':
+                    return Builder->createFMul(L, R, "multmp");
+                case '<':
+                    L = Builder->CreateFCmpULT(L, R, "cmptmp"); // compare u... less then
+                    // Convert bool 0/1 to double 0.0 or 1.0
+                    return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext), "booltmp");
+                default:
+                    return LogErrorV("invalid binary operator");
+            }
+        }
     };
 
     // function calls
     class CallExprAST : public ExprAST
     {
-        std::string Calle;
+        std::string Callee;
         std::vector<std::unique_ptr<ExprAST>> Args;
 
     public:
-        CallExprAST(const std::string &Calle,
+        CallExprAST(const std::string &Callee,
                     std::vector<std::unique_ptr<ExprAST>> Args)
-            : Calle(Calle), Args(std::move(Args)) {}
+            : Callee(Callee), Args(std::move(Args)) {}
+
+        Value *codegen() final {
+            // Look up the name in the global module table
+            Function* CalleeF = TheModule->getFunction(Callee); // function name lookup
+
+            if (!Callee) {
+                return LogErrorV("Unknown function referenced");
+            }
+            // argument mismatch error
+            if (CalleF->arg_size() != Args.size()) {
+                return LogErrorV("Incorrect number of arguments passed");
+            }
+            std::vector<Value*> ArgsV;
+
+            for (unsigned i = 0, e = Args.size(); i != e, ++i) {
+                ArgsV.emplace_back(Args[i]->codegen());
+
+                if (!ArgsV.back()) {
+                    return nullptr;
+                }
+            }
+            return Builder->CreateCall(CalleeF, ArgsV, "calltmp"); // call instruction
+        }
     };
 
     // repersents prototype for a function
@@ -263,7 +340,7 @@ namespace kaleidoscope
                 }
             }
             LHS =
-                std::make_unique<BinarayExprAST>(BinOp, std::move(LHS), std::move(RHS));
+                std::make_unique<BinaryExprAST>(BinOp, std::move(LHS), std::move(RHS));
         }
     }
 
