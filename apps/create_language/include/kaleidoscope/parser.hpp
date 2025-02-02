@@ -130,8 +130,7 @@ namespace kaleidoscope
         {
             return parse_number_expression(lexer);
         }
-        if (std::holds_alternative<unknown_token>(lexer.current_token()) &&
-            std::get<unknown_token>(lexer.current_token()).value)
+        if (std::holds_alternative<left_parenthesis_token>(lexer.current_token()))
         {
             return parse_parenthesis_expression(lexer);
         }
