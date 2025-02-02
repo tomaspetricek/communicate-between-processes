@@ -34,10 +34,10 @@ int main(int, char **)
   }
 
   auto lhs =
-      kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>(
+      kaleidoscope::ast::make_expression<kaleidoscope::ast::variable_expression>(
           "x");
   auto rhs =
-      kaleidoscope::make_expression<kaleidoscope::ast::variable_expression>(
+      kaleidoscope::ast::make_expression<kaleidoscope::ast::variable_expression>(
           "y");
   auto result = std::make_unique<kaleidoscope::ast::binary_expression>(
       '+', std::move(lhs), std::move(rhs));
@@ -52,7 +52,7 @@ int main(int, char **)
   kaleidoscope::main_loop(sample2_reader);
 
   auto expr =
-      kaleidoscope::make_expression<kaleidoscope::ast::number_expression>(10);
-  auto node = kaleidoscope::make_node(std::move(expr));
+      kaleidoscope::ast::make_expression<kaleidoscope::ast::number_expression>(10);
+  auto node = kaleidoscope::ast::make_node(std::move(expr));
   kaleidoscope::print(node);
 }

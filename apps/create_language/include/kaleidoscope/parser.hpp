@@ -42,7 +42,7 @@ namespace kaleidoscope
     static ast::expression parse_number_expression(kaleidoscope::lexer &lexer)
     {
         assert(std::holds_alternative<number_token>(lexer.current_token()));
-        auto result = make_expression<ast::number_expression>(
+        auto result = ast::make_expression<ast::number_expression>(
             std::get<number_token>(lexer.current_token()).number);
         lexer.get_next_token(); // consume the number
         return std::move(result);
@@ -80,7 +80,7 @@ namespace kaleidoscope
         if (!std::holds_alternative<left_parenthesis_token>(
                 lexer.current_token()))
         { // simple variable reference // look ahead
-            return make_expression<ast::variable_expression>(std::move(identifier));
+            return ast::make_expression<ast::variable_expression>(std::move(identifier));
         }
         lexer.get_next_token(); // eat (
         std::vector<ast::expression> args;
@@ -112,7 +112,7 @@ namespace kaleidoscope
             }
         }
         lexer.get_next_token();
-        return make_expression<ast::call_expression>(std::move(identifier),
+        return ast::make_expression<ast::call_expression>(std::move(identifier),
                                                      std::move(args));
     }
 
@@ -209,7 +209,7 @@ namespace kaleidoscope
                     return ast::expression{};
                 }
             }
-            lhs = make_expression<ast::binary_expression>(
+            lhs = ast::make_expression<ast::binary_expression>(
                 binary_operator, std::move(lhs), std::move(rhs));
         }
     }

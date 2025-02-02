@@ -85,19 +85,19 @@ namespace kaleidoscope
                      std::unique_ptr<binary_expression>,
                      std::unique_ptr<call_expression>, std::unique_ptr<prototype>,
                      std::unique_ptr<function>>;
+
+    template <class Expression, class... Args>
+    ast::expression make_expression(Args &&...args)
+    {
+      return ast::expression{
+          std::make_unique<Expression>(std::forward<Args>(args)...)};
+    }
+
+    ast::node make_node(ast::expression expression)
+    {
+      return core::variant_cast(std::move(expression));
+    }
   } // namespace ast
-
-  template <class Expression, class... Args>
-  ast::expression make_expression(Args &&...args)
-  {
-    return ast::expression{
-        std::make_unique<Expression>(std::forward<Args>(args)...)};
-  }
-
-  ast::node make_node(ast::expression expression)
-  {
-    return core::variant_cast(std::move(expression));
-  }
 } // namespace kaleidoscope
 
 #endif // KALEIDOSCOPE_ABSTRACT_SYNTAX_TREE_HPP
