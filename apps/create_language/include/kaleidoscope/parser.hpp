@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "etl/flat_map.h"
+
 #include "kaleidoscope/abstract_syntax_tree.hpp"
 #include "kaleidoscope/buffer_reader.hpp"
 #include "kaleidoscope/lexer.hpp"
@@ -80,7 +82,8 @@ namespace kaleidoscope
         if (!std::holds_alternative<left_parenthesis_token>(
                 lexer.current_token()))
         { // simple variable reference // look ahead
-            return ast::make_expression<ast::variable_expression>(std::move(identifier));
+            return ast::make_expression<ast::variable_expression>(
+                std::move(identifier));
         }
         lexer.get_next_token(); // eat (
         std::vector<ast::expression> args;
@@ -113,7 +116,7 @@ namespace kaleidoscope
         }
         lexer.get_next_token();
         return ast::make_expression<ast::call_expression>(std::move(identifier),
-                                                     std::move(args));
+                                                          std::move(args));
     }
 
     // primary
@@ -166,6 +169,20 @@ namespace kaleidoscope
         return token_precedence;
     }
 
+    ast::binary_operator convert_to_binary_operator(char op) noexcept
+    {
+        using operator_pair_t = std::pair<char, ast::binary_operator>;
+        static const auto conversion = etl::make_flat_map<char, ast::binary_operator>(
+            operator_pair_t{'<', ast::binary_operator::less_than},
+            operator_pair_t{'+', ast::binary_operator::addition},
+            operator_pair_t{'-', ast::binary_operator::subtraction},
+            operator_pair_t{'*', ast::binary_operator::multiplication});
+
+        const auto &it = conversion.find(op);
+        assert(it != conversion.cend());
+        return it->second;
+    }
+
     // binoprhs
     //  ::= ('+' primary)
     static ast::expression parse_binaray_operation_rhs(kaleidoscope::lexer &lexer,
@@ -184,8 +201,7 @@ namespace kaleidoscope
                 return lhs;
             }
             // know that it is binop
-            const auto binary_operator =
-                std::get<unknown_token>(lexer.current_token()).value;
+            const auto op = std::get<unknown_token>(lexer.current_token()).value;
             lexer.get_next_token(); // eat binop
 
             // parse the primary expression after the binary operator
@@ -210,7 +226,7 @@ namespace kaleidoscope
                 }
             }
             lhs = ast::make_expression<ast::binary_expression>(
-                binary_operator, std::move(lhs), std::move(rhs));
+                convert_to_binary_operator(op), std::move(lhs), std::move(rhs));
         }
     }
 

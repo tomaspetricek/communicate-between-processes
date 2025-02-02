@@ -38,13 +38,20 @@ namespace kaleidoscope
       explicit variable_expression(const std::string &name_) : name{name_} {}
     };
 
+    enum class binary_operator {
+      less_than,
+      addition,
+      subtraction,
+      multiplication,
+    };
+
     // binary operator
     struct binary_expression
     {
-      char op;
+      binary_operator op;
       expression lhs, rhs;
 
-      explicit binary_expression(char op_, expression lhs_, expression rhs_)
+      explicit binary_expression(binary_operator op_, expression lhs_, expression rhs_)
           : op{op_}, lhs(std::move(lhs_)), rhs(std::move(rhs_)) {}
     };
 

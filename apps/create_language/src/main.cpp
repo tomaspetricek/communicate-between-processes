@@ -33,14 +33,13 @@ int main(int, char **)
     std::println("{}", token);
   }
 
-  auto lhs =
-      kaleidoscope::ast::make_expression<kaleidoscope::ast::variable_expression>(
-          "x");
-  auto rhs =
-      kaleidoscope::ast::make_expression<kaleidoscope::ast::variable_expression>(
-          "y");
+  auto lhs = kaleidoscope::ast::make_expression<
+      kaleidoscope::ast::variable_expression>("x");
+  auto rhs = kaleidoscope::ast::make_expression<
+      kaleidoscope::ast::variable_expression>("y");
   auto result = std::make_unique<kaleidoscope::ast::binary_expression>(
-      '+', std::move(lhs), std::move(rhs));
+      kaleidoscope::ast::binary_operator::addition, std::move(lhs),
+      std::move(rhs));
 
   std::string sample2{"extern sin(arg);"
                       "extern cos(arg);"
@@ -52,7 +51,8 @@ int main(int, char **)
   kaleidoscope::main_loop(sample2_reader);
 
   auto expr =
-      kaleidoscope::ast::make_expression<kaleidoscope::ast::number_expression>(10);
+      kaleidoscope::ast::make_expression<kaleidoscope::ast::number_expression>(
+          10);
   auto node = kaleidoscope::ast::make_node(std::move(expr));
   kaleidoscope::print(node);
 }
