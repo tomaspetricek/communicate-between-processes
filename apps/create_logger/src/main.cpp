@@ -1,3 +1,4 @@
+#include <iostream>
 #include <print>
 #include <string_view>
 #include <utility>
@@ -14,9 +15,26 @@ namespace log
         off
     };
 
+    class logger
+    {
+    public:
+        bool make_entry(const std::string_view &token) noexcept
+        {
+            std::cout << token;
+            return true;
+        }
+
+        bool end_line() noexcept
+        {
+            std::cout << '\n';
+            return true;
+        }
+    };
+
     namespace impl
     {
-        static log::level curr_level = level::debug;
+        static log::level curr_level{level::debug};
+        static log::logger curr_logger{};
 
         template <class... Args>
         bool make_entry(const log::level &level, const std::string_view &format,
@@ -25,6 +43,14 @@ namespace log
             if (level < curr_level)
             {
                 return true;
+            }
+            if (!curr_logger.make_entry(format))
+            {
+                return false;
+            }
+            if (!curr_logger.end_line())
+            {
+                return false;
             }
             return true;
         }
