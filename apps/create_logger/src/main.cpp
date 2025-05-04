@@ -54,7 +54,7 @@ namespace log
         }
 
         template <class First, class... Rest>
-        bool create_log(const token_t &format, const First &first,
+        bool format_log(const token_t &format, const First &first,
                         Rest &&...rest) noexcept
         {
             std::size_t index{0};
@@ -114,7 +114,7 @@ namespace log
                 }
                 // log next argument
                 const auto format_written_count{index};
-                return create_log(format.subspan(format_written_count,
+                return format_log(format.subspan(format_written_count,
                                                  format.size() - format_written_count),
                                   std::forward<Rest>(rest)...);
             }
@@ -140,7 +140,7 @@ namespace log
             else
             {
                 // format provided arguments
-                if (!create_log(token_t{format.data(), format.size()},
+                if (!format_log(token_t{format.data(), format.size()},
                                 std::forward<Args>(args)...))
                 {
                     return false;
