@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <print>
 #include <span>
@@ -40,60 +41,95 @@ namespace log
         static log::level curr_level{level::debug};
         static log::logger curr_logger{};
 
+        static constexpr char placeholder_begin{'{'};
+        static constexpr char placeholder_end{'}'};
+
+        bool find_next(std::size_t &index, const token_t &format,
+                       char target) noexcept
+        {
+            for (; index != format.size() && format[index] != target; index++)
+            {
+            }
+            return index != format.size();
+        }
+
         template <class First, class... Rest>
         bool create_log(const token_t &format, const First &first,
                         Rest &&...rest) noexcept
         {
             std::size_t index{0};
 
-            for (; index != format.size() && format[index] != '{'; index++)
-            {
-            }
-            if (index == format.size())
+            // reach next format placeholder
+            if (!find_next(index, format, placeholder_begin))
             {
                 return false;
             }
+            // log before placeholder
             if (!curr_logger.log(token_t{format.data(), index}))
             {
                 return false;
             }
+            // format argument
             const auto token = std::to_string(first);
 
+            // log argument
             if (!curr_logger.log(token_t{token.data(), token.size()}))
             {
                 return false;
             }
-            if constexpr (sizeof...(rest) == std::size_t{0})
+            // pass format placeholder
+            if (!find_next(++index, format, placeholder_end))
             {
-                return true;
+                return false;
+            }
+            constexpr auto all_arguments_formatted = sizeof...(rest) == std::size_t{0};
+
+            // reached end of format
+            if (index == (format.size() - 1))
+            {
+                return all_arguments_formatted;
+            }
+            const auto first_index = ++index;
+
+            // reach next format placeholder
+            const auto next_found = find_next(index, format, placeholder_begin);
+
+            // log after placeholder
+            if (!curr_logger.log(format.subspan(first_index, index - first_index)))
+            {
+                return false;
+            }
+            // all arguments formatted
+            if constexpr (all_arguments_formatted)
+            {
+                // true, an extra placeholder has been provided
+                return !next_found;
             }
             else
             {
-                index++;
-
-                for (; index != format.size() && format[index] != '}'; index++)
-                {
-                }
-                if (index == format.size())
+                // insufficient number of placeholders
+                if (!next_found)
                 {
                     return false;
                 }
-                const auto format_written_count{index + 1};
-                return create_log(token_t{format.data() + format_written_count,
-                                          format.size() - format_written_count},
+                // log next argument
+                const auto format_written_count{index};
+                return create_log(format.subspan(format_written_count,
+                                                 format.size() - format_written_count),
                                   std::forward<Rest>(rest)...);
             }
-            return true;
         }
 
         template <class... Args>
         bool log(const log::level &level, const std::string_view &format,
                  Args &&...args) noexcept
         {
+            // check log level sufficiency
             if (level < curr_level)
             {
                 return true;
             }
+            // no arguments provided
             if constexpr (sizeof...(args) == std::size_t{0})
             {
                 if (!curr_logger.log(token_t{format.data(), format.size()}))
@@ -103,17 +139,14 @@ namespace log
             }
             else
             {
+                // format provided arguments
                 if (!create_log(token_t{format.data(), format.size()},
                                 std::forward<Args>(args)...))
                 {
                     return false;
                 }
             }
-            if (!curr_logger.end_line())
-            {
-                return false;
-            }
-            return true;
+            return curr_logger.end_line();
         }
     } // namespace impl
 
