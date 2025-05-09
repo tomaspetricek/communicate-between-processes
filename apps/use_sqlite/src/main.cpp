@@ -42,27 +42,27 @@ struct person_t
     std::int32_t age{0};
 };
 
-class statement
+class prepared_statement
 {
     sqlite3_stmt *stmt_{nullptr};
 
-    explicit statement(sqlite3_stmt *stmt) noexcept : stmt_{stmt} {}
+    explicit prepared_statement(sqlite3_stmt *stmt) noexcept : stmt_{stmt} {}
 
 public:
     // forbid copying
-    statement(const statement &other) = delete;
-    statement &operator=(const statement &other) = delete;
+    prepared_statement(const prepared_statement &other) = delete;
+    prepared_statement &operator=(const prepared_statement &other) = delete;
 
     // specify moving
-    statement(statement &&other) noexcept
+    prepared_statement(prepared_statement &&other) noexcept
         : stmt_{std::exchange(other.stmt_, nullptr)} {}
-    statement &operator=(statement &&other) noexcept
+    prepared_statement &operator=(prepared_statement &&other) noexcept
     {
         std::swap(stmt_, other.stmt_);
         return *this;
     }
 
-    static std::optional<statement> create(sqlite3 *database_handle,
+    static std::optional<prepared_statement> create(sqlite3 *database_handle,
                                            const char *query) noexcept
     {
         assert(database_handle != nullptr);
@@ -75,7 +75,7 @@ public:
                          sqlite3_errmsg(database_handle));
             return std::nullopt;
         }
-        return statement{stmt};
+        return prepared_statement{stmt};
     }
 
     bool set_value(int column, int value) noexcept
@@ -96,7 +96,7 @@ public:
         value = sqlite3_column_int(stmt_, 0);
     }
 
-    ~statement() noexcept
+    ~prepared_statement() noexcept
     {
         if (stmt_ == nullptr)
         {
@@ -113,20 +113,20 @@ class person_writer
 {
     static constexpr std::string_view query =
         "INSERT INTO people (name, age) VALUES (?, ?);";
-    statement stmt_;
+    prepared_statement stmt_;
 
-    explicit person_writer(statement &&stmt) noexcept : stmt_{std::move(stmt)} {}
+    explicit person_writer(prepared_statement &&stmt) noexcept : stmt_{std::move(stmt)} {}
 
 public:
     static std::optional<person_writer>
     create(sqlite3 *database_handle) noexcept
     {
         assert(database_handle != nullptr);
-        auto stmt = statement::create(database_handle, query.data());
+        auto stmt = prepared_statement::create(database_handle, query.data());
 
         if (!stmt.has_value())
         {
-            std::println(stderr, "failed to create statement");
+            std::println(stderr, "failed to create prepared_statement");
             return std::nullopt;
         }
         return person_writer(std::move(stmt.value()));
