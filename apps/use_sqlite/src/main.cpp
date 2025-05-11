@@ -191,14 +191,14 @@ public:
             std::println("failed to set age: {}", person.age);
             return false;
         }
-        std::println("age value set");
+        std::println("age value set to: {}", person.age);
 
         if (!stmt_.set_value(index++, person.name.data()))
         {
             std::println("failed to set name: {}", person.name);
             return false;
         }
-        std::println("name value set");
+        std::println("name value set to: {}", person.name.data());
 
         const auto executed = stmt_.execute();
 
@@ -217,6 +217,7 @@ public:
 bool execute_script(sqlite3 *database_handle,
                     const std::string_view &script) noexcept
 {
+    assert(database_handle != nullptr);
     char *error_message = 0;
 
     if (sqlite3_exec(database_handle, script.data(), 0, 0, &error_message) !=
