@@ -145,12 +145,12 @@ public:
         return true;
     }
 
-    void get_value(int &value, int column) noexcept
+    void get_value(int &value, int index) noexcept
     {
         assert(database_handle_ != nullptr);
         assert(stmt_ != nullptr);
-        assert(column >= 0);
-        value = sqlite3_column_int(stmt_, 0);
+        assert(index >= 0);
+        value = sqlite3_column_int(stmt_, index);
     }
 
     bool destroy() noexcept
