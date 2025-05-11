@@ -48,7 +48,9 @@ class prepared_statement
     sqlite3 *database_handle_{nullptr};
     sqlite3_stmt *stmt_{nullptr};
 
-    explicit prepared_statement(sqlite3 * database_handle, sqlite3_stmt *stmt) noexcept : database_handle_{database_handle}, stmt_{stmt} {}
+    explicit prepared_statement(sqlite3 *database_handle,
+                                sqlite3_stmt *stmt) noexcept
+        : database_handle_{database_handle}, stmt_{stmt} {}
 
 public:
     // forbid copying
@@ -103,8 +105,8 @@ public:
         assert(database_handle_ != nullptr);
         assert(stmt_ != nullptr);
 
-        if (sqlite3_bind_text(stmt_, index + 1, value.data(), -1, SQLITE_TRANSIENT) !=
-            SQLITE_OK)
+        if (sqlite3_bind_text(stmt_, index + 1, value.data(), -1,
+                              SQLITE_TRANSIENT) != SQLITE_OK)
         {
             std::println(stderr, "failed to set value: {} at index: {}", value.data(),
                          index);
@@ -113,17 +115,34 @@ public:
         return true;
     }
 
-    std::optional<int> execute() noexcept {
+    std::optional<int> execute() noexcept
+    {
         assert(database_handle_ != nullptr);
         assert(stmt_ != nullptr);
 
         const auto code = sqlite3_step(stmt_);
 
-        if (code != SQLITE_DONE && code != SQLITE_ROW) {
-            std::println(stderr, "failed to execute statement due to: {}", sqlite3_errmsg(database_handle_));
+        if (code != SQLITE_DONE && code != SQLITE_ROW)
+        {
+            std::println(stderr, "failed to execute statement due to: {}",
+                         sqlite3_errmsg(database_handle_));
             return std::nullopt;
         }
         return code;
+    }
+
+    bool reset() noexcept
+    {
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
+
+        if (sqlite3_reset(stmt_) != SQLITE_OK)
+        {
+            std::println(stderr, "failed to reset prepared statement due to: {}",
+                         sqlite3_errmsg(database_handle_));
+            return false;
+        }
+        return true;
     }
 
     void get_value(int &value, int column) noexcept
@@ -152,10 +171,7 @@ public:
         return true;
     }
 
-    ~prepared_statement() noexcept
-    {
-        assert(destroy());
-    }
+    ~prepared_statement() noexcept { assert(destroy()); }
 };
 
 class person_writer
@@ -202,12 +218,21 @@ public:
 
         const auto executed = stmt_.execute();
 
-        if (!executed) {
-            std::println("failed to execute statement: {} with value: age: {}, name: {}", query, person.age, person.name);
+        if (!executed)
+        {
+            std::println(
+                "failed to execute statement: {} with value: age: {}, name: {}",
+                query, person.age, person.name);
             return false;
         }
         std::println("prepare statement executed");
         assert(executed.value() == SQLITE_DONE);
+
+        if (!stmt_.reset())
+        {
+            std::println(stderr,
+                         "failed to ready prepare statement for next execution");
+        }
         return true;
     }
 
