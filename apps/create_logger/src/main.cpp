@@ -188,6 +188,6 @@ int main(int, char **)
     std::println("create logger");
     log::info("provide no arguments");
     log::info("provide single argument: {}", 42);
-    log::info("provide multiple multiple arguents: first: {}, second: {}", 10,
+    log::info("provide multiple arguents: first: {}, second: {}", 10,
               2.F);
 }
