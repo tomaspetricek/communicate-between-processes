@@ -45,9 +45,10 @@ struct person_t
 
 class prepared_statement
 {
+    sqlite3 *database_handle_{nullptr};
     sqlite3_stmt *stmt_{nullptr};
 
-    explicit prepared_statement(sqlite3_stmt *stmt) noexcept : stmt_{stmt} {}
+    explicit prepared_statement(sqlite3 * database_handle, sqlite3_stmt *stmt) noexcept : database_handle_{database_handle}, stmt_{stmt} {}
 
 public:
     // forbid copying
@@ -56,9 +57,11 @@ public:
 
     // specify moving
     prepared_statement(prepared_statement &&other) noexcept
-        : stmt_{std::exchange(other.stmt_, nullptr)} {}
+        : database_handle_{std::exchange(other.database_handle_, nullptr)},
+          stmt_{std::exchange(other.stmt_, nullptr)} {}
     prepared_statement &operator=(prepared_statement &&other) noexcept
     {
+        std::swap(database_handle_, other.database_handle_);
         std::swap(stmt_, other.stmt_);
         return *this;
     }
@@ -67,6 +70,7 @@ public:
                                                     const char *query) noexcept
     {
         assert(database_handle != nullptr);
+        assert(query != nullptr);
         sqlite3_stmt *stmt{nullptr};
 
         if (sqlite3_prepare_v2(database_handle, query, -1, &stmt, NULL) !=
@@ -76,11 +80,13 @@ public:
                          sqlite3_errmsg(database_handle));
             return std::nullopt;
         }
-        return prepared_statement{stmt};
+        return prepared_statement{database_handle, stmt};
     }
 
     bool set_value(int index, int value) noexcept
     {
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
         assert(index >= 0);
 
         if (sqlite3_bind_int(stmt_, index + 1, value) != SQLITE_OK)
@@ -94,7 +100,10 @@ public:
 
     bool set_value(int index, const std::string_view &value) noexcept
     {
-        if (sqlite3_bind_text(stmt_, index, value.data(), -1, SQLITE_TRANSIENT) !=
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
+
+        if (sqlite3_bind_text(stmt_, index + 1, value.data(), -1, SQLITE_TRANSIENT) !=
             SQLITE_OK)
         {
             std::println(stderr, "failed to set value: {} at index: {}", value.data(),
@@ -104,14 +113,36 @@ public:
         return true;
     }
 
+    std::optional<int> execute() noexcept {
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
+
+        const auto code = sqlite3_step(stmt_);
+
+        if (code != SQLITE_DONE && code != SQLITE_ROW) {
+            std::println(stderr, "failed to execute statement due to: {}", sqlite3_errmsg(database_handle_));
+            return std::nullopt;
+        }
+        return code;
+    }
+
     void get_value(int &value, int column) noexcept
     {
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
         assert(column >= 0);
         value = sqlite3_column_int(stmt_, 0);
     }
 
     bool destroy() noexcept
     {
+        if (stmt_ == nullptr)
+        {
+            return true;
+        }
+        assert(database_handle_ != nullptr);
+        assert(stmt_ != nullptr);
+
         if (sqlite3_finalize(stmt_) != SQLITE_OK)
         {
             std::println(stderr, "failed to finalize statement");
@@ -123,11 +154,7 @@ public:
 
     ~prepared_statement() noexcept
     {
-        if (stmt_ == nullptr)
-        {
-            return;
-        }
-        destroy();
+        assert(destroy());
     }
 };
 
@@ -164,11 +191,23 @@ public:
             std::println("failed to set age: {}", person.age);
             return false;
         }
+        std::println("age value set");
+
         if (!stmt_.set_value(index++, person.name.data()))
         {
             std::println("failed to set name: {}", person.name);
             return false;
         }
+        std::println("name value set");
+
+        const auto executed = stmt_.execute();
+
+        if (!executed) {
+            std::println("failed to execute statement: {} with value: age: {}, name: {}", query, person.age, person.name);
+            return false;
+        }
+        std::println("prepare statement executed");
+        assert(executed.value() == SQLITE_DONE);
         return true;
     }
 
@@ -415,11 +454,6 @@ int main(int, char **)
         std::println(stderr, "failed to open database");
         return EXIT_FAILURE;
     }
-    if (!database.value().load_into_memory())
-    {
-        std::println(stderr, "failed to load data into memory");
-        return EXIT_FAILURE;
-    }
     const person_t person{"Tom", 26};
 
     if (!database.value().write_person(person))
@@ -428,6 +462,8 @@ int main(int, char **)
                      person.name, person.age);
         return EXIT_FAILURE;
     }
+    std::println("person written");
+
     if (!database.value().flush_to_disk())
     {
         std::println(stderr, "failed to flush data to disk");
