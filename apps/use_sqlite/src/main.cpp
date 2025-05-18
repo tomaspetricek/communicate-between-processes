@@ -7,6 +7,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <filesystem>
+#include <chrono>
+#include <ctime>
+
 
 bool copy_content(sqlite3 *src_handle, sqlite3 *dest_handle) noexcept
 {
@@ -449,6 +453,31 @@ bool create_database(const std::filesystem::path &destination,
     return true;
 }
 
+auto to_system_time(const std::filesystem::file_time_type& time) noexcept {
+    return std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        time - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
+}
+
+void print_last_modified_time() noexcept {
+    std::error_code code;
+
+    const auto curr_path = std::filesystem::current_path(code);
+
+    if (code) {
+        std::println(stderr, "failed to retrieve current path due to: {}", code.message());
+        return;
+    }
+    const auto file_time = std::filesystem::last_write_time(curr_path, code);
+
+    if (code) {
+        std::println(stderr, "failed to retrieve last write time due to: {}", code.message());
+        return;
+    }
+    const auto system_time = to_system_time(file_time);
+    const auto ctime = std::chrono::system_clock::to_time_t(system_time);
+    std::println("{} last modied: {}", curr_path.string(), std::ctime(&ctime));
+}
+
 int main(int, char **)
 {
     std::println("use sqlite database");
@@ -495,5 +524,6 @@ int main(int, char **)
         std::println(stderr, "failed to flush data to disk");
         return EXIT_FAILURE;
     }
+    print_last_modified_time();
     return EXIT_SUCCESS;
 }
