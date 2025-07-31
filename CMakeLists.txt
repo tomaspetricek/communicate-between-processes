@@ -40,6 +40,7 @@ add_subdirectory(apps/create_language)
 add_subdirectory(apps/create_logger)
 add_subdirectory(apps/sleeping_barber_problem)
 add_subdirectory(apps/use_sqlite)
+add_subdirectory(apps/text_editor)
 
 add_executable(use_pipes use_pipes.cpp)
 target_link_libraries(use_pipes PRIVATE unix)
