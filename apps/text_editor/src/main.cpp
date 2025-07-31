@@ -78,6 +78,13 @@ class text_editor
     std::vector<char> document;
 };
 
+namespace keys
+{
+    static constexpr int DELETE = 127;
+    static constexpr int BACKSPACE = 8;
+    static constexpr int ESCAPE = 27;
+} // namespace keys
+
 int main()
 {
     std::println("text editor");
@@ -92,6 +99,7 @@ int main()
     bool running{true};
     std::string text;
     int32_t count{0};
+    bool edit_mode{true};
 
     while (running)
     {
@@ -103,16 +111,36 @@ int main()
         }
         auto &key = key_read.value();
 
-        if (key == 'q')
+        if (edit_mode)
         {
-            running = false;
-            continue;
+            if (key == keys::DELETE || key == keys::BACKSPACE)
+            {
+                if (!text.empty())
+                {
+                    text.pop_back();
+                }
+            }
+            else if (key == keys::ESCAPE)
+            {
+                edit_mode = false;
+            }
+            else
+            {
+                text.push_back(key);
+            }
+        }
+        else
+        {
+            if (key == 'q')
+            {
+                running = false;
+                continue;
+            }
         }
         if (!console::refresh_screen())
         {
             return EXIT_FAILURE;
         }
-        text.push_back(key);
 
         if (count % 2 == 0)
         {
@@ -124,6 +152,17 @@ int main()
         else
         {
             if (!console::write_text(console::make_bold(text)))
+            {
+                return EXIT_FAILURE;
+            }
+        }
+        if (!edit_mode)∑
+        {
+            if (!console::move_cursor_home())
+            {
+                return EXIT_FAILURE;
+            }
+            if (!console::write_text("\npress q to quit"))
             {
                 return EXIT_FAILURE;
             }
