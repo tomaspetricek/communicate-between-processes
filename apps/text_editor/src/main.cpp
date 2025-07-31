@@ -59,6 +59,18 @@ namespace console
         }
         return true;
     }
+
+    std::string make_bold(const std::string_view &text)
+    {
+        std::string result;
+        const std::string_view start{"\x1b[1m"};
+        const std::string_view end{"\x1b[0m"};
+        result.reserve(start.size() + text.size() + end.size());
+        result.append(start);
+        result.append(text);
+        result.append(end);
+        return result;
+    }
 } // namespace console
 
 class text_editor
@@ -79,6 +91,7 @@ int main()
     std::println("raw mode enabled");
     bool running{true};
     std::string text;
+    int32_t count{0};
 
     while (running)
     {
@@ -101,10 +114,21 @@ int main()
         }
         text.push_back(key);
 
-        if (!console::write_text(text))
+        if (count % 2 == 0)
         {
-            return EXIT_FAILURE;
+            if (!console::write_text(text))
+            {
+                return EXIT_FAILURE;
+            }
         }
+        else
+        {
+            if (!console::write_text(console::make_bold(text)))
+            {
+                return EXIT_FAILURE;
+            }
+        }
+        count++;
     }
     if (!console::disable_raw_mode(orig_termios))
     {
