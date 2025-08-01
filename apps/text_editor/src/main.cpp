@@ -85,6 +85,74 @@ class text_editor
     std::string document_;
     bool keep_running_{true};
     bool edit_mode_{true};
+    int32_t count_{0};
+
+    void process_key_in_edit_mode(char key)
+    {
+        if (key == keys::DELETE || key == keys::BACKSPACE)
+        {
+            if (!document_.empty())
+            {
+                document_.pop_back();
+            }
+        }
+        else if (key == keys::ESCAPE)
+        {
+            edit_mode_ = false;
+        }
+        else
+        {
+            document_.push_back(key);
+        }
+    }
+
+    void process_key_in_view_mode(char key)
+    {
+        if (key == 'q')
+        {
+            keep_running_ = false;
+        }
+    }
+
+    bool display_menu_in_view_mode()
+    {
+        if (!console::move_cursor_home())
+        {
+            return false;
+        }
+        return console::write_text("\npress q to quit");
+    }
+
+    bool display_document()
+    {
+        if (count_ % 2 == 0)
+        {
+            if (!console::write_text(document_))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (!console::write_text(console::make_bold(document_)))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    void process_key(char key)
+    {
+        if (edit_mode_)
+        {
+            process_key_in_edit_mode(key);
+        }
+        else
+        {
+            process_key_in_view_mode(key);
+        }
+    }
 
 public:
     bool run()
@@ -95,8 +163,6 @@ public:
         {
             return false;
         }
-        int32_t count{0};
-
         while (keep_running_)
         {
             const auto key_read = console::read_key();
@@ -106,64 +172,28 @@ public:
                 return EXIT_FAILURE;
             }
             auto &key = key_read.value();
+            process_key(key);
 
-            if (edit_mode_)
+            if (!keep_running_)
             {
-                if (key == keys::DELETE || key == keys::BACKSPACE)
-                {
-                    if (!document_.empty())
-                    {
-                        document_.pop_back();
-                    }
-                }
-                else if (key == keys::ESCAPE)
-                {
-                    edit_mode_ = false;
-                }
-                else
-                {
-                    document_.push_back(key);
-                }
-            }
-            else
-            {
-                if (key == 'q')
-                {
-                    keep_running_ = false;
-                    continue;
-                }
+                continue;
             }
             if (!console::refresh_screen())
             {
                 return false;
             }
-
-            if (count % 2 == 0)
+            if (!display_document())
             {
-                if (!console::write_text(document_))
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                if (!console::write_text(console::make_bold(document_)))
-                {
-                    return false;
-                }
+                return false;
             }
             if (!edit_mode_)
             {
-                if (!console::move_cursor_home())
-                {
-                    return false;
-                }
-                if (!console::write_text("\npress q to quit"))
+                if (!display_menu_in_view_mode())
                 {
                     return false;
                 }
             }
-            count++;
+            count_++;
         }
         if (!console::disable_raw_mode(orig_termios))
         {
