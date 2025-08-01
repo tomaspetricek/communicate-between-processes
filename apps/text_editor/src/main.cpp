@@ -73,11 +73,6 @@ namespace console
     }
 } // namespace console
 
-class text_editor
-{
-    std::vector<char> document;
-};
-
 namespace keys
 {
     static constexpr int DELETE = 127;
@@ -85,93 +80,97 @@ namespace keys
     static constexpr int ESCAPE = 27;
 } // namespace keys
 
-int main()
+class text_editor
 {
-    std::println("text editor");
-    struct termios orig_termios;
+    std::string document_;
+    bool keep_running_{true};
+    bool edit_mode_{true};
 
-    if (!console::enable_raw_mode(orig_termios))
+public:
+    bool run()
     {
-        std::println("failed to enable raw mode");
-        return EXIT_FAILURE;
-    }
-    std::println("raw mode enabled");
-    bool running{true};
-    std::string text;
-    int32_t count{0};
-    bool edit_mode{true};
+        struct termios orig_termios;
 
-    while (running)
-    {
-        const auto key_read = console::read_key();
-
-        if (!key_read.has_value())
+        if (!console::enable_raw_mode(orig_termios))
         {
-            return EXIT_FAILURE;
+            return false;
         }
-        auto &key = key_read.value();
+        int32_t count{0};
 
-        if (edit_mode)
+        while (keep_running_)
         {
-            if (key == keys::DELETE || key == keys::BACKSPACE)
+            const auto key_read = console::read_key();
+
+            if (!key_read.has_value())
             {
-                if (!text.empty())
-                {
-                    text.pop_back();
-                }
+                return EXIT_FAILURE;
             }
-            else if (key == keys::ESCAPE)
+            auto &key = key_read.value();
+
+            if (edit_mode_)
             {
-                edit_mode = false;
+                if (key == keys::DELETE || key == keys::BACKSPACE)
+                {
+                    if (!document_.empty())
+                    {
+                        document_.pop_back();
+                    }
+                }
+                else if (key == keys::ESCAPE)
+                {
+                    edit_mode_ = false;
+                }
+                else
+                {
+                    document_.push_back(key);
+                }
             }
             else
             {
-                text.push_back(key);
+                if (key == 'q')
+                {
+                    keep_running_ = false;
+                    continue;
+                }
             }
-        }
-        else
-        {
-            if (key == 'q')
+            if (!console::refresh_screen())
             {
-                running = false;
-                continue;
+                return false;
             }
-        }
-        if (!console::refresh_screen())
-        {
-            return EXIT_FAILURE;
-        }
 
-        if (count % 2 == 0)
-        {
-            if (!console::write_text(text))
+            if (count % 2 == 0)
             {
-                return EXIT_FAILURE;
+                if (!console::write_text(document_))
+                {
+                    return false;
+                }
             }
+            else
+            {
+                if (!console::write_text(console::make_bold(document_)))
+                {
+                    return false;
+                }
+            }
+            if (!edit_mode_)
+            {
+                if (!console::move_cursor_home())
+                {
+                    return false;
+                }
+                if (!console::write_text("\npress q to quit"))
+                {
+                    return false;
+                }
+            }
+            count++;
         }
-        else
+        if (!console::disable_raw_mode(orig_termios))
         {
-            if (!console::write_text(console::make_bold(text)))
-            {
-                return EXIT_FAILURE;
-            }
+            return false;
         }
-        if (!edit_mode)∑
-        {
-            if (!console::move_cursor_home())
-            {
-                return EXIT_FAILURE;
-            }
-            if (!console::write_text("\npress q to quit"))
-            {
-                return EXIT_FAILURE;
-            }
-        }
-        count++;
+        return true;
     }
-    if (!console::disable_raw_mode(orig_termios))
-    {
-        return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
-}
+};
+
+int main() { return text_editor{}.run() ? EXIT_SUCCESS : EXIT_FAILURE; }
