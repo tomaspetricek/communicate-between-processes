@@ -7,6 +7,13 @@
 #include <thread>
 #include <unistd.h>
 
+
+    struct position
+    {
+        int row{0}, col{0};
+    };
+
+
 namespace console
 {
     bool write_text(const std::string_view &text)
@@ -71,6 +78,57 @@ namespace console
         result.append(end);
         return result;
     }
+
+    // ESC [ <row> ; <col> R
+    std::optional<position> get_cursor_position()
+    {
+        const auto position_requested = write_text("\x1b[6n");
+
+        if (!position_requested)
+        {
+            return std::nullopt;
+        }
+        char buf[32];
+        unsigned int i{0};
+
+        bool read_all{false};
+
+        for (; i < sizeof(buf) - 1; i++)
+        {
+            const auto key = read_key();
+
+            if (!key.has_value())
+            {
+                return std::nullopt;
+            }
+            buf[i] = key.value();
+
+            if (buf[i] == 'R')
+            {
+                read_all = true;
+                break;
+            }
+        }
+        if (!read_all)
+        {
+            return std::nullopt;
+        }
+        if (i < 2)
+        {
+            return std::nullopt;
+        }
+        if (buf[0] != '\x1b' || buf[1] != '[')
+        {
+            return std::nullopt;
+        }
+        position pos;
+
+        if (sscanf(&buf[2], "%d;%d", &pos.row, &pos.col) != 2)
+        {
+            return std::nullopt;
+        }
+        return pos;
+    }
 } // namespace console
 
 namespace keys
@@ -112,6 +170,10 @@ class text_editor
         {
             keep_running_ = false;
         }
+        if (key == 'e')
+        {
+            edit_mode_ = true;
+        }
     }
 
     bool display_menu_in_view_mode()
@@ -120,7 +182,8 @@ class text_editor
         {
             return false;
         }
-        return console::write_text("\npress q to quit");
+        return console::write_text(
+            "\n\npress: q - to quit, e - to continue editing");
     }
 
     bool display_document()
@@ -154,6 +217,38 @@ class text_editor
         }
     }
 
+    bool display_cursor_position()
+    {
+        const auto position_retrived = console::get_cursor_position();
+
+        if (!position_retrived.has_value())
+        {
+            return false;
+        }
+        const auto &pos = position_retrived.value();
+
+        char buf[100];
+        const int needed = snprintf(buf, sizeof(buf),
+                                    "\ncurrent cursor position: row: %d, col: %d",
+                                    pos.row, pos.col);
+
+        // error occured
+        if (needed < 0)
+        {
+            return false;
+        }
+        // truncated
+        if (needed >= sizeof(buf))
+        {
+            return false;
+        }
+        if (!console::write_text(buf))
+        {
+            return false;
+        }
+        return true;
+    }
+
 public:
     bool run()
     {
@@ -174,15 +269,19 @@ public:
             auto &key = key_read.value();
             process_key(key);
 
-            if (!keep_running_)
-            {
-                continue;
-            }
             if (!console::refresh_screen())
             {
                 return false;
             }
+            if (!keep_running_)
+            {
+                continue;
+            }
             if (!display_document())
+            {
+                return false;
+            }
+            if (!display_cursor_position())
             {
                 return false;
             }
