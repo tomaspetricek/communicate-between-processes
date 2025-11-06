@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <variant>
 #include <string>
+#include <thread>
+#include <chrono>
 
 class playground_t
 {
@@ -96,6 +98,54 @@ void take_ownership(move_only_t &&object)
 {
 }
 
+class base_t
+{
+public:
+    base_t()
+    {
+        std::println("base constructor called");
+    }
+
+    ~base_t()
+    {
+        std::println("base destructor called");
+    }
+};
+
+class derived_t : public base_t
+{
+public:
+    derived_t()
+    {
+        std::println("derived constructed called");
+    }
+
+    ~derived_t()
+    {
+        std::println("derived destructor called");
+    }
+};
+
+class csv_reader_t
+{
+public:
+    template <class... Values>
+    bool write_line(const Values &...vals)
+    {
+        constexpr std::size_t value_count = sizeof...(vals);
+        return true;
+    }
+};
+
+void keep_working(std::atomic<bool> &stop)
+{
+    while (!stop)
+    {
+        std::println("hello from a thread");
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
 int main(int, char **)
 {
     print(10, "text", 2.F);
@@ -128,5 +178,27 @@ int main(int, char **)
 
     static_assert(is_same_v<faster_processor_t, faster_processor_t>);
 
+    {
+        derived_t derived{};
+    }
+    constexpr std::size_t value_count{5};
+    std::array<int, value_count> values{1, 2, 3, 4, 5};
+
+    for (const auto &val : values)
+    {
+        std::print("{}, ", val);
+    }
+    std::println("");
+
+    csv_reader_t reader;
+    reader.write_line(10, "value");
+
+    static_assert(std::is_same_v<int, std::decay_t<const int &>>);
+
+    std::atomic<bool> stop{false};
+    std::thread thread(keep_working, std::ref(stop));
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    stop = true;
+    thread.join();
     return EXIT_SUCCESS;
 }
