@@ -7,6 +7,9 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <filesystem>
+#include <system_error>
 
 class playground_t
 {
@@ -200,5 +203,20 @@ int main(int, char **)
     std::this_thread::sleep_for(std::chrono::seconds(10));
     stop = true;
     thread.join();
+
+    std::error_code code;
+    const auto curr_path = std::filesystem::current_path(code);
+
+    if (!code)
+    {
+        std::println("current path: {}", curr_path.string());
+    }
+    else
+    {
+        std::println(stderr, "failed to retrieve current path due to: {}", code.message());
+        return EXIT_FAILURE;
+    }
+    std::ofstream file((curr_path / "hello.txt").string());
+    file << "wrote into file\n";
     return EXIT_SUCCESS;
 }
