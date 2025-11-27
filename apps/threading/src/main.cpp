@@ -3,6 +3,9 @@
 #include <thread>
 #include <algorithm>
 #include <numeric>
+#include <mutex>
+#include <list>
+#include <exception>
 
 class background_task
 {
@@ -183,6 +186,84 @@ T parallel_accumulate(Iterator first, Iterator last, T init)
     }
     return std::accumulate(results.cbegin(), results.cend(), init);
 }
+
+std::list<int> some_list;
+std::mutex some_mutex;
+
+void add_to_list(int value)
+{
+    std::lock_guard guard(some_mutex);
+    some_list.push_back(value);
+}
+
+bool list_contains(int value)
+{
+    std::lock_guard guard(some_mutex);
+    return std::find(some_list.cbegin(), some_list.cend(), value) != some_list.cend();
+}
+
+struct empty_stack : std::exception
+{
+    const char *what() const throw()
+    {
+        return "empty stack";
+    }
+};
+
+template <class T>
+class threadsafe_stack
+{
+    std::stack<T> data;
+    mutable std::mutex mutex;
+
+public:
+    threadsafe_stack() = default;
+
+    threadsafe_stack(const threadsafe_stack &other)
+    {
+        std::lock_guard lock(other.mutex);
+        data = other.data;
+    }
+
+    threadsafe_stack &operator=(const threadsafe_stack &) = delete;
+
+    void push(T value)
+    {
+        std::lock_guard lock(mutex);
+        data.push(std::move(value));
+    }
+
+    std::shared_ptr<T> pop()
+    {
+        std::lock_guard lock(mutex);
+
+        if (data.empty())
+        {
+            throw empty_stack();
+        }
+        const auto res = std::make_shared(data.top());
+        data.pop();
+        return res;
+    }
+
+    void pop(T &value)
+    {
+        std::lock_guard lock(mutex);
+
+        if (data.empty())
+        {
+            throw empty_stack();
+        }
+        value = data.top();
+        data.pop();
+    }
+
+    bool empty() const
+    {
+        std::lock_guard lock(mutex);
+        return data.empty();
+    }
+};
 
 int main()
 {
