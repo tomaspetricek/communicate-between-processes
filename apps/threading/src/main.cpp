@@ -320,6 +320,98 @@ public:
 };
 thread_local unsigned long hierarchical_mutex::this_thread_hierarchy_value(ULONG_MAX);
 
+class some_big_object
+{
+};
+void swap(some_big_object &lhs, some_big_object &rhs) {}
+
+class Y
+{
+    some_big_object some_detail;
+    std::mutex m;
+
+public:
+    Y(const some_big_object &some_detail) : some_detail(some_detail) {}
+
+    friend void swap(Y &rhs, Y &lhs)
+    {
+        if (&rhs == &lhs)
+        {
+            return;
+        }
+        std::unique_lock lock_rhs(rhs.m, std::defer_lock);
+        std::unique_lock lock_lhs(lhs.m, std::defer_lock);
+        std::lock(lock_rhs, lock_lhs);
+        swap(rhs.some_detail, lhs.some_detail);
+    }
+};
+
+struct some_resource
+{
+    void do_something() {}
+};
+
+std::shared_ptr<some_resource> resource_ptr;
+std::once_flag resource_flag;
+
+void init_resource()
+{
+    resource_ptr.reset(new some_resource);
+}
+
+void use_shared_resource()
+{
+    // lazy initialization
+    std::call_once(resource_flag, init_resource);
+    resource_ptr->do_something();
+}
+
+struct data_packet
+{
+};
+struct connection_info
+{
+};
+struct connection_handle
+{
+    void send_data(const data_packet &packet) {}
+    data_packet receive_data() {}
+};
+struct connection_manager
+{
+    static connection_handle open(const connection_info &info)
+    {
+        return connection_handle();
+    }
+};
+
+class Z
+{
+    connection_info connection_details;
+    connection_handle connection;
+    std::once_flag connection_init_flag;
+
+    void open_connection()
+    {
+        connection = connection_manager::open(connection_details);
+    }
+
+public:
+    Z(const connection_info &info) : connection_details(info) {}
+
+    void send_data(const data_packet &packet)
+    {
+        std::call_once(connection_init_flag, &Z::open_connection, this); // lazy initialization
+        connection.send_data(packet);
+    }
+
+    data_packet receive_data()
+    {
+        std::call_once(connection_init_flag, &Z::open_connection, this); // lazy initialization
+        return connection.receive_data();
+    }
+};
+
 int main()
 {
     std::thread task([]()
