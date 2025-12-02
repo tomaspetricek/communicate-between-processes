@@ -6,6 +6,7 @@
 #include <mutex>
 #include <list>
 #include <exception>
+#include "use_shared_mutex.hpp"
 
 class background_task
 {
@@ -442,4 +443,7 @@ int main()
     }
     const auto res = parallel_accumulate(vals.cbegin(), vals.cend(), 0L);
     std::println("sum: {}", res);
+
+    // use shared mutex
+    dns_chache chache;
 }
