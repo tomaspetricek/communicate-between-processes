@@ -20,6 +20,7 @@
 #include "use_threads.hpp"
 #include "use_parallel_accumulate.hpp"
 #include "wait_for_condition.hpp"
+#include "use_threadsafe_queue.hpp"
 
 
 int main()
