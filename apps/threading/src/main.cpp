@@ -21,10 +21,12 @@
 #include "use_parallel_accumulate.hpp"
 #include "wait_for_condition.hpp"
 #include "use_threadsafe_queue.hpp"
+#include "wait_for_event.hpp"
 
 
 int main()
 {
     use_threads();
     use_parallel_accumulate();
+    wait_for_event();
 }
