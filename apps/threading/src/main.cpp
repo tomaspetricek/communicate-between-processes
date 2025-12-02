@@ -22,6 +22,7 @@
 #include "wait_for_condition.hpp"
 #include "use_threadsafe_queue.hpp"
 #include "wait_for_event.hpp"
+#include "use_packaged_task.hpp"
 
 
 int main()
