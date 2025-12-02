@@ -19,6 +19,7 @@
 #include "use_mutex.hpp"
 #include "use_threads.hpp"
 #include "use_parallel_accumulate.hpp"
+#include "wait_for_condition.hpp"
 
 
 int main()
