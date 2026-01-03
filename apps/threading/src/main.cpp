@@ -24,10 +24,20 @@
 #include "wait_for_event.hpp"
 #include "use_packaged_task.hpp"
 #include "use_promise.hpp"
+#include "use_future.hpp"
+#include "wait_until.hpp"
+#include "quick_sort.hpp"
+#include "atm.hpp"
+
 
 int main()
 {
     use_threads();
     use_parallel_accumulate();
     wait_for_event();
+    use_future();
+    wait_loop();
+
+    std::list<int> vals{1, 2, 3, 1, 5, 10, 2, 7};
+    const auto sorted = parallel_quick_sort(vals);
 }
